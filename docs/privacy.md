@@ -17,14 +17,17 @@ them at a feed on purpose. That is the whole `URLSession` story — there is no 
 creates is an `AF_UNIX` one — a file in its own support directory, used by the hook relay
 (`Sources/ClaudeBridge/HookServer.swift`, `Sources/tkzmux-hook/Socket.swift`).
 
-It also reaches the network **indirectly, in one place**: the PR badge shells out to
+It also reaches the network **indirectly, in two places**. The PR badge shells out to
 `gh pr view` (`Sources/GitStatus/PRLookup.swift`), and `gh` talks to GitHub under your own
 credentials. That call is gated — the origin's host is checked with `git remote get-url origin` and
 cached per directory first, so `gh` is never invoked for a repo whose origin is not GitHub, not even
 to fail. When it may run, it runs for the selected session and for any session whose PR is still
 open, at most once per five minutes per session, plus once when a Claude turn ends (at least 15 s
-apart) so a PR the session just created shows up promptly. Apart from that and Claude Code's own
-traffic from the `claude` process in your terminal, nothing leaves the machine.
+apart) so a PR the session just created shows up promptly. The second place is `git fetch` of a
+repo's base branch (`Sources/GitStatus/GitRebase.swift`), under your own git credentials: it runs
+when you open the rebase sheet from the `⤿ 7 behind main` chip, and — only if you turn *Check Origin
+Periodically* on, which is off by default — every five minutes per repo. Apart from those and
+Claude Code's own traffic from the `claude` process in your terminal, nothing leaves the machine.
 
 **Processes it starts.** Your login shell, on a pty (`Sources/TkzPtyShim/TkzPtyShim.c`,
 `Sources/TkzTerminalCore/Pty.swift`) — everything else *inside* a session is something you typed.
@@ -33,6 +36,8 @@ Plus these, in the background, on repos backing your sessions:
 | Command | Why |
 |---|---|
 | `git status --porcelain=v2 --branch -z`, `git diff HEAD --shortstat` | branch, ahead/behind and diff counts (`GitStatusService.swift`) |
+| `git symbolic-ref -q refs/remotes/origin/HEAD`, `git for-each-ref …` | find the repo's base branch (`origin/main`), once per repo and again every 60 s while it is unresolved (`BaseBranch.swift`) |
+| `git rev-list --left-right --count <base>...HEAD` | how far the branch is behind its base — the `⤿ 7 behind main` chip — against the *local* remote-tracking ref, so only as fresh as the last fetch (`GitStatusService.swift`) |
 | `git worktree list --porcelain` | notice when a worktree behind a row is removed (`WorktreeList.swift`) |
 | `git remote get-url origin` | decide whether the PR lookup may run at all (`PRLookup.swift`) |
 | `gh pr view --json …` | the PR badge — **GitHub origins only**; ≤ 1 per 5 min per session with an open PR, plus one per Claude turn (`PRLookup.swift`) |
@@ -40,10 +45,20 @@ Plus these, in the background, on repos backing your sessions:
 All of them run with `--no-optional-locks` / `GIT_OPTIONAL_LOCKS=0` so a background refresh cannot
 contend with git commands you run yourself.
 
-And these, **only when you click** on the update card, never on their own:
+And this one, **only if you turn it on** (*Check Origin Periodically* in the app menu, off by
+default):
 
 | Command | Why |
 |---|---|
+| `git fetch --quiet origin <base>` | every 5 minutes per repo with a session, and on wake/activation when the last check is older than that, so the `⤿ 7 behind main` chip reflects the remote. Under your own git credentials; a missing credential fails at once rather than prompting (`GitRebase.swift`, `GitIntegration.swift`) |
+
+And these, **only when you click** — the rebase sheet or the update card — never on their own.
+The rebase ones are **the only commands in the app that write to a repository**:
+
+| Command | Why |
+|---|---|
+| `git fetch --quiet origin <base>`, `git rev-list --left-right --count …` | opening the rebase sheet (⌥⌘R or the `⤿ 7 behind main` chip): fetch the base branch, then count what "Pulls in N commits" says. Skipped when the repo was fetched within the last minute (`GitRebase.swift`) |
+| `git status --porcelain=v2 -z`, `git rebase --autostash <base>`, and on failure `git diff --name-only --diff-filter=U` then `git rebase --abort` | the sheet's *Rebase* button. Uncommitted tracked changes are stashed and put back; a conflict aborts and the tree is left as it was, with a notice saying how many files conflicted. Refused on a detached HEAD or while a rebase or merge is already in progress, and the button is off while the row's Claude is mid-turn (`GitRebase.swift`, `GitIntegration.swift`) |
 | `brew update`, then `brew upgrade --cask tkz0/tap/tkzmux` | "Update via Homebrew" — offered only when the running app is the cask's `/Applications/tkzmux.app` and `brew` is installed; everything brew prints goes to `~/Library/Logs/tkzmux/update.log` (`Sources/TkzApp/Update/UpgradeRunner.swift`) |
 | `/bin/sh -c 'while kill -0 <pid> …; do sleep 0.2; done; exec /usr/bin/open <app>'` | "Restart to update" — waits for tkzmux to quit, then reopens it (`UpdateRelaunch.swift`). Restarting closes every session's shell; the rows are kept and ⌘R resumes Claude |
 

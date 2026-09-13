@@ -361,6 +361,12 @@ extension AppState {
         autoResumeOnLaunch = enabled
     }
 
+    /// The periodic base-branch fetch (2026-09-13). Nothing else in the state depends on it: the
+    /// timer that reads it lives in `GitIntegration`, which observes `ChangeSet.chrome`.
+    public mutating func setCheckOriginPeriodically(_ enabled: Bool) {
+        checkOriginPeriodically = enabled
+    }
+
     /// The global on/off for token usage/spend (design: enable/disable, all sessions). Turning it
     /// off clears every session's already-summed `live.usage` right away, rather than leaving a
     /// stale figure on screen until the next hook fires; turning it back on needs a fresh read,

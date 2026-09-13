@@ -146,5 +146,6 @@ struct DiffParsingTests {
         #expect(summary.deletions == 12)
         #expect(DiffBase.head.label == "vs HEAD")
         #expect(DiffBase.upstream("origin/develop").label == "vs origin/develop")
+        #expect(DiffBase.base("origin/main").label == "vs origin/main")
     }
 }

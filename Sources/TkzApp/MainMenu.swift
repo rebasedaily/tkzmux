@@ -68,6 +68,22 @@ public final class MenuDispatcher: NSObject, NSMenuItemValidation {
     /// The current checkmark state, or nil for an action that has none.
     public func checkmark(for action: ShortcutAction) -> Bool? { checkmarks[action]?() }
 
+    /// Enablement providers for commands that have a handler but not always something to act
+    /// on ("Rebase onto Base Branch…" with no drift). Read on every validation, like the
+    /// checkmarks. Distinct from *having no handler*: a disabled item is still an item, still in
+    /// the palette and the cheat sheet — it exists, it just cannot fire right now.
+    private var enablement: [ShortcutAction: () -> Bool] = [:]
+
+    public func setEnabled(_ action: ShortcutAction, _ isEnabled: @escaping () -> Bool) {
+        enablement[action] = isEnabled
+    }
+
+    /// `canPerform` and, when the action has an enablement rule, that rule too. What
+    /// `validateMenuItem` returns.
+    public func isEnabled(_ action: ShortcutAction) -> Bool {
+        canPerform(action) && (enablement[action]?() ?? true)
+    }
+
     public func canPerform(_ action: ShortcutAction) -> Bool { handlers[action] != nil }
 
     /// Every action with a handler right now — what `MainMenu.build` makes items for, and what the
@@ -103,7 +119,7 @@ public final class MenuDispatcher: NSObject, NSMenuItemValidation {
         guard let raw = menuItem.representedObject as? String else { return false }
         let action = ShortcutAction(raw)
         if let isOn = checkmarks[action] { menuItem.state = isOn() ? .on : .off }
-        return canPerform(action)
+        return isEnabled(action)
     }
 }
 
@@ -167,6 +183,7 @@ public enum MainMenu {
         addCommand(.reloadConfig, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.toggleAutoResume, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.toggleSessionSpend, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
+        addCommand(.toggleOriginCheck, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.statusLineIntegration, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.removeShellIntegration, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         menu.addItem(.separator())
@@ -260,6 +277,7 @@ public enum MainMenu {
         addCommand(.copyLastMessage, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.showFirstPrompt, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.showChanges, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
+        addCommand(.rebaseOntoBase, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         menu.addItem(.separator())
         addCommand(.previousSession, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.nextSession, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)

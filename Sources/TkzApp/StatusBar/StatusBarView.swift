@@ -147,13 +147,15 @@ struct StatusItem: Equatable, Sendable {
     }
 }
 
-/// The two things a click on the strip can do. Decided where the content is decided (`items`),
+/// The three things a click on the strip can do. Decided where the content is decided (`items`),
 /// never in the mouse handler.
 enum StatusAction: Equatable, Sendable {
     /// Open in the default browser: the PR badge, each port.
     case open(URL)
     /// Open the changes viewer (design 2c.2 / TKZ-58): the `+142 −38` and `12 files` chips.
     case showChanges
+    /// Open the rebase sheet (design 5a/5b): the `⤿ 7 behind main` chip.
+    case rebaseOntoBase
 }
 
 // MARK: - View
@@ -339,6 +341,31 @@ public final class StatusBarView: NSView {
                 out.append(StatusItem(
                     .runs(sync),
                     tooltip: "\(model.ahead ?? 0) ahead of\(target), \(model.behind ?? 0) behind"))
+            }
+        }
+
+        // The base-branch chip (design 5a/5b), right after the upstream arrows so the two
+        // "how far from where" facts sit together: an amber outlined pill, only while the branch
+        // is behind its base — an attention chip, so in sync draws nothing (the sheet and the
+        // menu state cover "measured and in sync"). The text says what the number is
+        // (`⤿ 7 behind main`) rather than leaving that to a tooltip that takes a second to show;
+        // the tooltip only adds the action and the freshness caveat. While a rebase runs the
+        // same pill says so, dimmed and inert, so a second click cannot start a second one.
+        if let base = model.baseBranch, let behind = model.behindBase, behind > 0 || model.isRebasing {
+            let label = Self.baseLabel(base)
+            if model.isRebasing {
+                out.append(StatusItem(
+                    .pill(
+                        text: "\u{293F} rebasing onto \(label)\u{2026}", foreground: theme.foregroundDim,
+                        background: .clear, border: theme.foregroundDim, tracking: 0),
+                    tooltip: "Rebasing onto \(base)\u{2026}"))
+            } else {
+                out.append(StatusItem(
+                    .pill(
+                        text: Self.baseChipText(base: base, behind: behind), foreground: theme.rebaseText,
+                        background: theme.rebaseBackground, border: theme.rebaseBorder, tracking: 0),
+                    tooltip: Self.baseTooltip(base: base, shortcut: model.rebaseShortcut),
+                    action: .rebaseOntoBase))
             }
         }
 
@@ -692,8 +719,9 @@ public final class StatusBarView: NSView {
     }
 
     /// A click on a port badge opens `http://localhost:<port>`; a click on the PR badge opens the
-    /// pull request; a click on a diff chip opens the changes viewer. Everything else falls
-    /// through, so a click on the strip does not steal focus from the terminal.
+    /// pull request; a click on a diff chip opens the changes viewer; a click on the `⤿ 7 behind main`
+    /// chip opens the rebase sheet. Everything else falls through, so a click on the strip does
+    /// not steal focus from the terminal.
     public override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
         guard let action = item(at: point)?.action else {
@@ -703,6 +731,7 @@ public final class StatusBarView: NSView {
         switch action {
         case .open(let url): openURL(url)
         case .showChanges: onShowChanges?()
+        case .rebaseOntoBase: onRebaseOntoBase?()
         }
     }
 
@@ -710,11 +739,35 @@ public final class StatusBarView: NSView {
     var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     /// The diff chips were clicked. The window controller opens (or closes) the viewer.
     public var onShowChanges: (() -> Void)?
+    /// The `⤿ 7 behind main` chip was clicked. The window controller opens the rebase sheet.
+    public var onRebaseOntoBase: (() -> Void)?
 
     /// The second tooltip line on both diff chips: `Click or ⇧⌘G to browse the changes`.
     static func showChangesHint(shortcut: String?) -> String {
         let chord = shortcut.flatMap { $0.isEmpty ? nil : " or \($0)" } ?? ""
         return "Click\(chord) to browse the changes"
+    }
+
+    /// `origin/main` → `main`: the chip names the branch, the tooltip the ref. Everything up to
+    /// the first `/` is the remote (`GitStatusService` only ever produces `<remote>/<name>` or a
+    /// bare local name), so `origin/feature/x` correctly becomes `feature/x`.
+    nonisolated static func baseLabel(_ base: String) -> String {
+        guard let slash = base.firstIndex(of: "/") else { return base }
+        let name = base[base.index(after: slash)...]
+        return name.isEmpty ? base : String(name)
+    }
+
+    /// `⤿ 7 behind main` / `⤿ 1 behind main`: the whole fact, readable without a tooltip.
+    static func baseChipText(base: String, behind: Int) -> String {
+        "\u{293F} \(behind) behind \(baseLabel(base))"
+    }
+
+    /// `Click or ⌥⌘R to rebase onto origin/main` and the honest line: the count compares
+    /// against the local remote-tracking ref, and nothing fetches on its own unless the periodic
+    /// check is turned on.
+    static func baseTooltip(base: String, shortcut: String?) -> String {
+        let chord = shortcut.flatMap { $0.isEmpty ? nil : " or \($0)" } ?? ""
+        return "Click\(chord) to rebase onto \(base)\nCommits on \(base) this branch lacks, as of the last fetch"
     }
 
     // MARK: Hover

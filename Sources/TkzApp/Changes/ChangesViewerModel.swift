@@ -70,10 +70,13 @@ struct ChangesViewerModel: Equatable {
         }
     }
 
-    /// The bases the branch offers. Keeps the current choice when it is still on the menu — a
-    /// refresh must not silently flip `vs origin/develop` back to `vs HEAD`.
-    mutating func setBases(upstream: String?) {
+    /// The bases the branch offers: `HEAD`, the upstream when there is one, and the repo's base
+    /// branch when it is known and is not the upstream already (a main checkout tracking
+    /// `origin/main` must not list it twice). Keeps the current choice when it is still on the
+    /// menu — a refresh must not silently flip `vs origin/develop` back to `vs HEAD`.
+    mutating func setBases(upstream: String?, base baseBranch: String? = nil) {
         bases = [.head] + (upstream.map { [DiffBase.upstream($0)] } ?? [])
+        if let baseBranch, baseBranch != upstream { bases.append(.base(baseBranch)) }
         if !bases.contains(base) { base = .head }
     }
 

@@ -86,7 +86,7 @@ final class ChangesViewerController {
         sessionID = id
         self.toplevel = toplevel
         lastCounts = Self.counts(of: git)
-        model.setBases(upstream: git?.upstream)
+        model.setBases(upstream: git?.upstream, base: git?.baseBranch)
         view.isHidden = false
         view.takeKeyboard()
         loadSummary()
@@ -109,13 +109,16 @@ final class ChangesViewerController {
         let counts = Self.counts(of: git)
         guard counts != lastCounts else { return }
         lastCounts = counts
-        model.setBases(upstream: git?.upstream)
+        model.setBases(upstream: git?.upstream, base: git?.baseBranch)
         loadSummary()
     }
 
     static func counts(of git: GitSummary?) -> [Int]? {
         guard let git else { return nil }
-        return [git.changedFiles, git.untrackedFiles, git.insertions, git.deletions, git.ahead, git.behind]
+        return [
+            git.changedFiles, git.untrackedFiles, git.insertions, git.deletions, git.ahead, git.behind,
+            git.aheadOfBase ?? -1, git.behindBase ?? -1,
+        ]
     }
 
     // MARK: Reads

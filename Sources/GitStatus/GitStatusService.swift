@@ -140,6 +140,12 @@ public final class GitStatusService: Sendable {
         let queue: DispatchQueue
         var watcher: FSEventsWatcher?
         var sessions: Set<SessionID> = []
+        /// The repo's trunk (`BaseBranch.resolve`), shared by every worktree of the repo since refs
+        /// live in the common dir. `nil` until resolved — or after the ref it named went away.
+        var base: BaseBranch?
+        /// When `resolve` last ran. While `base == nil` it runs again once this is older than
+        /// `baseRetryInterval`; a resolved base is kept until a refresh finds its ref gone.
+        var baseCheckedAt: Date?
 
         init(queue: DispatchQueue) { self.queue = queue }
     }
@@ -149,20 +155,26 @@ public final class GitStatusService: Sendable {
     /// - Parameters:
     ///   - debounce: trailing debounce after a filesystem event. design.md's 300 ms.
     ///   - minimumInterval: the floor between two refreshes of one session during a burst. 2 s.
+    ///   - baseRetryInterval: how long an *unresolved* base branch is left alone before the next
+    ///     refresh tries `BaseBranch.resolve` again. 60 s.
     ///   - onSummary: called on a service queue whenever a session's summary *changes*, and once
     ///     with `nil` when a tracked session stops being in a repo.
     public init(
         debounce: Duration = .milliseconds(300),
         minimumInterval: Duration = .seconds(2),
+        baseRetryInterval: TimeInterval = 60,
         gitPath: String = GitProcess.gitPath,
         onSummary: @escaping @Sendable (SessionID, GitSummary?) -> Void
     ) {
         self.debounce = debounce
         self.minimumInterval = minimumInterval
+        self.baseRetryInterval = baseRetryInterval
         self.gitPath = gitPath
         self.onSummary = onSummary
         self.storage = Mutex(Storage())
     }
+
+    private let baseRetryInterval: TimeInterval
 
     deinit {
         let actions = storage.withLock { s -> [WatcherAction] in
@@ -273,6 +285,16 @@ public final class GitStatusService: Sendable {
 
     public func repoInfo(for id: SessionID) -> RepoInfo? {
         storage.withLock { $0.sessions[id]?.info }
+    }
+
+    /// The base branch of `id`'s repo as last resolved — what `GitSummary.baseBranch` was built
+    /// from, in its structured form, so the rebase runner never has to split `origin/main` back
+    /// apart. `nil` until a refresh has resolved it.
+    public func baseBranch(for id: SessionID) -> BaseBranch? {
+        storage.withLock { s in
+            guard let state = s.sessions[id] else { return nil }
+            return s.repos[state.info.repoRoot]?.base
+        }
     }
 
     /// The last summary handed to `onSummary`, or `nil`. Diagnostics and tests.
@@ -489,19 +511,40 @@ public final class GitStatusService: Sendable {
             var directory: String
             var info: RepoInfo
             var generation: UInt64
+            var base: BaseBranch?
+            var baseCheckedAt: Date?
         }
         let target = storage.withLock { s -> Target? in
             guard let state = s.sessions[id] else { return nil }
             state.lastRefreshStartedAt = Date()
             state.debounceTimer?.cancel()
             state.debounceTimer = nil
+            let repo = s.repos[state.info.repoRoot]
             return Target(
-                directory: state.directory, info: state.info, generation: state.generation)
+                directory: state.directory, info: state.info, generation: state.generation,
+                base: repo?.base, baseCheckedAt: repo?.baseCheckedAt)
         }
         guard let target else { return }
+
+        // The base branch is per repo and rarely changes, so it is resolved once and kept; only an
+        // *unresolved* one is retried, and not on every refresh — a repo with no trunk would
+        // otherwise pay two extra git launches per keystroke-driven refresh forever. Runs on the
+        // repo queue like the rest, so two sessions of one repo cannot resolve it concurrently.
+        var base = target.base
+        if base == nil,
+            target.baseCheckedAt.map({ Date().timeIntervalSince($0) >= baseRetryInterval }) ?? true
+        {
+            base = BaseBranch.resolve(in: target.directory, gitPath: gitPath)
+            storage.withLock { s in
+                guard let repo = s.repos[target.info.repoRoot] else { return }
+                repo.base = base
+                repo.baseCheckedAt = Date()
+            }
+        }
+
         guard
             let fresh = Self.compute(
-                directory: target.directory, info: target.info, gitPath: gitPath)
+                directory: target.directory, info: target.info, base: base, gitPath: gitPath)
         else { return }  // git failed or the directory went away: keep the last known value.
 
         let post = storage.withLock { s -> GitSummary? in
@@ -515,6 +558,25 @@ public final class GitStatusService: Sendable {
             state.changedPaths = fresh.paths
             var summary = fresh.summary
             summary.pr = state.pr  // one writer of the whole value (rule 4).
+            switch fresh.baseFailure {
+            case .refMissing?:
+                // The ref the base named is gone (`git remote remove`, a deleted branch): forget
+                // it so the next refresh past the retry interval resolves afresh. The summary
+                // already carries `nil` for the three base fields — that is a state, not a gap.
+                if let repo = s.repos[state.info.repoRoot] {
+                    repo.base = nil
+                    repo.baseCheckedAt = Date()
+                }
+            case .unavailable?:
+                // A measurement not made (rev-list timed out). Keep the last known *base* part
+                // only: dropping the whole summary, as the diff path does, would freeze the
+                // `+142 −38` counts on a repo whose rev-list always times out.
+                summary.baseBranch = state.lastPosted?.baseBranch
+                summary.aheadOfBase = state.lastPosted?.aheadOfBase
+                summary.behindBase = state.lastPosted?.behindBase
+            case nil:
+                break
+            }
             if let last = state.lastPosted, Self.matchesIgnoringTimestamp(last, summary) {
                 return nil  // THE EQUATABLE RULE: only `updatedAt` moved, so nothing to re-render.
             }
@@ -524,12 +586,22 @@ public final class GitStatusService: Sendable {
         if let post { onSummary(id, post) }
     }
 
-    /// `git status --porcelain=v2 --branch -z` + `git diff HEAD --shortstat`, in `directory` (the
-    /// session's own, not the repo root — a worktree has its own status). `nil` only when `status`
-    /// itself failed. Keeps the paths `git status` already printed (TKZ-52).
+    /// Why `compute` could not fill in the base fields. Two different things, handled differently
+    /// by the caller (see `performRefresh`).
+    enum BaseFailure: Equatable {
+        /// `rev-list` said no: the base ref does not exist (any more). A state.
+        case refMissing
+        /// `rev-list` could not be run or timed out. A measurement not made.
+        case unavailable
+    }
+
+    /// `git status --porcelain=v2 --branch -z` + `git diff HEAD --shortstat` (+ one `rev-list`
+    /// against `base` when there is one and the branch is not it), in `directory` (the session's
+    /// own, not the repo root — a worktree has its own status). `nil` only when `status` itself
+    /// failed. Keeps the paths `git status` already printed (TKZ-52).
     static func compute(
-        directory: String, info: RepoInfo, gitPath: String
-    ) -> (summary: GitSummary, paths: [ChangedPath])? {
+        directory: String, info: RepoInfo, base: BaseBranch?, gitPath: String
+    ) -> (summary: GitSummary, paths: [ChangedPath], baseFailure: BaseFailure?)? {
         guard
             let statusOutput = try? GitProcess.git(
                 ["status", "--porcelain=v2", "--branch", "-z"], in: directory, gitPath: gitPath),
@@ -556,6 +628,36 @@ public final class GitStatusService: Sendable {
             return nil
         }
 
+        // The base half follows the same two-outcome rule, but per field rather than for the
+        // whole summary: a missing ref is a state (`nil`s, and the caller forgets the base), a
+        // timeout keeps the last known base numbers while the rest of the summary still updates.
+        var baseBranch: String?
+        var aheadOfBase: Int?
+        var behindOfBase: Int?
+        var baseFailure: BaseFailure?
+        if let base {
+            baseBranch = base.ref
+            let onBase = status.branch == nil || status.isUnborn || status.branch == base.name
+            if !onBase {
+                do {
+                    let output = try GitProcess.git(
+                        ["rev-list", "--left-right", "--count", "\(base.ref)...HEAD"],
+                        in: directory, gitPath: gitPath)
+                    if output.succeeded,
+                        let counts = GitStatusParsing.parseLeftRightCount(output.standardOutput)
+                    {
+                        behindOfBase = counts.left
+                        aheadOfBase = counts.right
+                    } else {
+                        baseBranch = nil
+                        baseFailure = .refMissing
+                    }
+                } catch {
+                    baseFailure = .unavailable
+                }
+            }
+        }
+
         let summary = GitSummary(
             branch: status.branch,
             upstream: status.upstream,
@@ -566,9 +668,12 @@ public final class GitStatusService: Sendable {
             insertions: insertions,
             deletions: deletions,
             isWorktree: info.isWorktree,
+            baseBranch: baseBranch,
+            aheadOfBase: aheadOfBase,
+            behindBase: behindOfBase,
             pr: nil,
             updatedAt: Date())
-        return (summary, status.paths)
+        return (summary, status.paths, baseFailure)
     }
 
     /// Two summaries that differ only in `updatedAt`. The whole point of rule 3, in one function so

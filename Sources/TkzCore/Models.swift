@@ -996,6 +996,16 @@ public struct GitSummary: Hashable, Sendable, Codable {
     public var deletions: Int
     /// `realpath(git-dir) != realpath(git-common-dir)`.
     public var isWorktree: Bool
+    /// The repo's base branch as `GitStatusService` resolved it — `origin/main` (`origin/HEAD`,
+    /// else `origin/main`/`origin/master`), or a bare local `main`/`master` in a repo with no
+    /// remote. `nil` = unresolved, which is a *state* (the chip draws nothing), not "not yet".
+    public var baseBranch: String?
+    /// `rev-list --left-right --count <base>...HEAD`: commits on this branch that the base lacks.
+    /// `nil` when the branch *is* the base, HEAD is detached or unborn, or the base is unresolved.
+    public var aheadOfBase: Int?
+    /// Commits on the base that this branch lacks — what the `⤿ 7 behind main` chip shows. Compared
+    /// against the *local* remote-tracking ref, so it is only as fresh as the last fetch.
+    public var behindBase: Int?
     public var pr: PRInfo?
     public var updatedAt: Date
 
@@ -1009,6 +1019,9 @@ public struct GitSummary: Hashable, Sendable, Codable {
         insertions: Int = 0,
         deletions: Int = 0,
         isWorktree: Bool = false,
+        baseBranch: String? = nil,
+        aheadOfBase: Int? = nil,
+        behindBase: Int? = nil,
         pr: PRInfo? = nil,
         updatedAt: Date = Date()
     ) {
@@ -1021,11 +1034,18 @@ public struct GitSummary: Hashable, Sendable, Codable {
         self.insertions = insertions
         self.deletions = deletions
         self.isWorktree = isWorktree
+        self.baseBranch = baseBranch
+        self.aheadOfBase = aheadOfBase
+        self.behindBase = behindBase
         self.pr = pr
         self.updatedAt = updatedAt
     }
 
     public var isDirty: Bool { changedFiles > 0 || untrackedFiles > 0 }
+
+    /// A base is known and this branch is not it: the only state in which "rebase onto main"
+    /// means anything. `baseBranch` set with both counts `nil` is "on the base" (or detached).
+    public var isOffBase: Bool { baseBranch != nil && aheadOfBase != nil && behindBase != nil }
 }
 
 /// A pull request, from the statusline sidecar or `gh pr view`.

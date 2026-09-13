@@ -84,7 +84,24 @@ private func makeState() -> AppState {
         #expect(restored.shortcuts == original.shortcuts)
         #expect(restored.autoResumeOnLaunch == original.autoResumeOnLaunch)
         #expect(restored.showSessionSpend == original.showSessionSpend)
+        #expect(restored.checkOriginPeriodically == original.checkOriginPeriodically)
     }
+}
+
+@Test func theOriginCheckSwitchRoundTripsAndDefaultsOff() throws {
+    var state = makeState()
+    state.setCheckOriginPeriodically(true)
+    let data = try StateFile.encode(StateDocument(state: PersistedState(state)))
+    var restored = AppState()
+    try StateFile.decode(data).state.apply(to: &restored)
+    #expect(restored.checkOriginPeriodically == true)
+
+    // A file written before the switch existed has no key for it: off, like the other switches.
+    var object = try JSONDecoder().decode([String: JSONValue].self, from: data)
+    object["preferences"] = nil
+    var fresh = AppState()
+    try StateFile.decode(JSONEncoder().encode(object)).state.apply(to: &fresh)
+    #expect(fresh.checkOriginPeriodically == false)
 }
 
 @Test func aFileWithoutPreferencesLoadsWithTheDefaults() throws {

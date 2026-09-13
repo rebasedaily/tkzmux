@@ -83,6 +83,20 @@ struct ChangesViewerModelTests {
         #expect(model.base == .head)
     }
 
+    @Test func theBaseBranchIsOfferedUnlessItIsTheUpstream() {
+        var model = ChangesViewerModel()
+        model.setBases(upstream: "origin/feature", base: "origin/main")
+        #expect(model.bases == [.head, .upstream("origin/feature"), .base("origin/main")])
+        model.base = .base("origin/main")
+        model.setBases(upstream: nil, base: "origin/main")
+        #expect(model.bases == [.head, .base("origin/main")])
+        #expect(model.base == .base("origin/main"))
+        // A main checkout tracking origin/main: one entry, not two.
+        model.setBases(upstream: "origin/main", base: "origin/main")
+        #expect(model.bases == [.head, .upstream("origin/main")])
+        #expect(model.base == .head)
+    }
+
     @Test func paneMessagesCoverEveryEmptyState() {
         var model = ChangesViewerModel()
         #expect(ChangesViewerView.message(for: model) == "Loading\u{2026}")

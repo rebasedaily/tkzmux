@@ -83,6 +83,22 @@ public struct StatusBarModel: Hashable, Sendable {
     /// The worktree's directory name, for the `WT` pill's tooltip.
     public var worktreeName: String?
 
+    /// The repo's base branch as measured (`origin/main`), for the `⤿ 7 behind main` chip (design
+    /// 5a/5b). `nil` = unresolved, or not known yet: no chip either way.
+    public var baseBranch: String?
+
+    /// Commits on the base branch that this branch lacks. The chip is drawn only when this is
+    /// known *and* positive — it is an attention chip, not a gauge, so `↓0` draws nothing.
+    public var behindBase: Int?
+
+    /// The chord that opens the rebase sheet, already formatted (`⌥⌘R`), for the chip's tooltip.
+    /// Resolved by the caller from `ShortcutsTable`, like ``changesShortcut``.
+    public var rebaseShortcut: String?
+
+    /// A rebase is running for this session: the chip reads `⤿ rebasing onto main…` and is inert.
+    /// Process state, applied by `MainWindowController.updateStatusBar` like ``notice``.
+    public var isRebasing: Bool
+
     /// Percentage of the model's context window used, 0…100, already rounded.
     /// Rendered `Context 62%`.
     public var contextPercent: Int?
@@ -154,6 +170,10 @@ public struct StatusBarModel: Hashable, Sendable {
         behind: Int? = nil,
         upstream: String? = nil,
         upstreamMissing: Bool = false,
+        baseBranch: String? = nil,
+        behindBase: Int? = nil,
+        rebaseShortcut: String? = nil,
+        isRebasing: Bool = false,
         pullRequest: PRInfo? = nil,
         ports: [UInt16]? = nil,
         portOwners: [UInt16: String] = [:],
@@ -177,6 +197,10 @@ public struct StatusBarModel: Hashable, Sendable {
         self.behind = behind
         self.upstream = upstream
         self.upstreamMissing = upstreamMissing
+        self.baseBranch = baseBranch
+        self.behindBase = behindBase
+        self.rebaseShortcut = rebaseShortcut
+        self.isRebasing = isRebasing
         self.pullRequest = pullRequest
         self.ports = ports
         self.portOwners = portOwners
