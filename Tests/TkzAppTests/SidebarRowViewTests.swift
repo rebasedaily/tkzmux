@@ -474,6 +474,28 @@ struct SidebarRowViewTests {
         }
     }
 
+    /// The spend badge is the sidebar half of the token usage/spend feature — the status bar shows
+    /// it for the selected session, this shows it for every row. It must stay neutral (information,
+    /// not a warning) and absent whenever there is nothing to show.
+    @Test("The spend badge shows only when given, sits left of NEEDS YOU, and stays neutral")
+    func spendBadgeIsConditionalAndNeutral() throws {
+        let quiet = Self.sessionRow(SidebarSessionRowModel(title: "s", branch: "main"))
+        #expect(quiet.spendBadgeLayer.isHidden)
+
+        let spending = Self.sessionRow(SidebarSessionRowModel(
+            title: "s", branch: "main", needsAttention: true, spendBadge: "$1.23"))
+        #expect(!spending.spendBadgeLayer.isHidden)
+        #expect(spending.spendBadgeLayer.frame.width > 0)
+        // Neutral, not amber: it must not read as a warning like NEEDS YOU or the memory badge do.
+        #expect(!Self.approxEqual(
+            Self.components(spending.spendBadgeLayer.backgroundColor),
+            Self.components(Theme.default.needsYouBackground.cgColor)))
+        // On the title line, left of NEEDS YOU — never past it.
+        #expect(spending.spendBadgeLayer.frame.maxX <= spending.needsYouBadgeLayer.frame.minX + 0.5)
+        #expect(spending.spendBadgeLayer.frame.minX >= 0)
+        #expect(spending.spendBadgeLayer.frame.maxX <= spending.bounds.width)
+    }
+
     @Test("The account chip is present only with a label, and takes the colour it is given")
     func accountChipIsOptional() {
         let none = Self.sessionRow(SidebarSessionRowModel(title: "s"))

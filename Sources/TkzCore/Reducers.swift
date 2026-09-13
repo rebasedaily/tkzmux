@@ -445,6 +445,15 @@ extension AppState {
         else { return }
         updateLive(id) { $0.context = nil }
     }
+
+    /// What `TranscriptUsageReader` (ClaudeBridge) summed off a session's transcript, joined on
+    /// Claude's own session id — same reasoning as ``setSessionSidecar(_:)``: the reader knows
+    /// nothing about tkzmux rows, only about a Claude session id and its transcript.
+    public mutating func setSessionUsage(_ usage: SessionUsage, claudeSessionId: String) {
+        guard let id = sessions.values.first(where: { $0.claudeSessionId == claudeSessionId })?.id
+        else { return }
+        updateLive(id) { $0.usage = usage }
+    }
 }
 
 // MARK: - Status: hooks, descriptors, liveness

@@ -66,6 +66,11 @@ config dir — is read, never written:
   read only when the account's own sidecar carries no label yet, and never written.
 - If you pass `claude --settings <file-or-json>`, the shim reads that document in order to merge
   tkzmux's hooks into it (`Sources/tkzmux-hook/SettingsMerge.swift`).
+- `<config dir>/projects/*/<session id>.jsonl` — each session's own Claude Code transcript — is read
+  in two places: `TranscriptReader` reads the head and tail of the file for the first-prompt card
+  and Claude's own recap (`Sources/ClaudeBridge/TranscriptReader.swift`), and
+  `TranscriptUsageReader` reads every `"type":"assistant"` line's `message.usage` object to sum
+  token counts for the *Usage and spend* feature below. Neither ever writes to a transcript.
 
 **What it writes.** Everything lives under `~/Library/Application Support/tkzmux`:
 
@@ -81,9 +86,17 @@ config dir — is read, never written:
   `fish/tkzmux.fish`, `VERSION` — the shell integration (`Sources/ClaudeBridge/ShimInstaller.swift`).
 - `statusline/usage-<account>.json`, `statusline/context-<session id>.json` — what the status line
   command captures: quota percentages and reset times, and per session the context percentage,
-  model name, session name, working directory, repo and open PR
+  model name, session name, working directory, repo, open PR and cumulative session cost
   (`Sources/tkzmux-hook/StatuslineCommand.swift`). Written only while the status line is installed.
 - `statusline/previous-<account>.json` — the `statusLine` you had before, kept so it can be restored.
+- `usage/<session id>.json` — **Usage and spend.** A running per-model token count (input, output,
+  cache write, cache read) for the session, summed off its own transcript, plus the byte offset
+  already parsed so a relaunch resumes instead of re-reading the file
+  (`Sources/ClaudeBridge/TranscriptUsageReader.swift`). Estimated USD cost is *not* stored here — it
+  is computed from the token counts against a hand-maintained price table
+  (`Sources/TkzCore/ModelPricing.swift`) each time the status bar reads it, so an edit to that table
+  is retroactive. This file is a recomputable cache, not a record: deleting it just costs one re-read
+  of the transcript, the same as `statusline/*` and unlike `state.json`.
 - `tkzmux.sock` — the local hook socket.
 
 **Shell integration and hooks.** Terminals tkzmux opens run your login shell (`$SHELL`, else the

@@ -34,6 +34,10 @@
 // so the outline view can ask `height(for:width:)` without a row view, and it ignores the hover
 // `×` reserve on purpose: a row must not change height because the pointer passed over it.
 //
+// A session's estimated spend (`SidebarSessionRowModel.spendBadge`), when there is one, sits on the
+// title line just left of `NEEDS YOU` — not on the already-crowded detail line, and deliberately
+// left out of `neededDetailWidth`/`detailWraps`: it never affects whether the row wraps to 59 pt.
+//
 // The account chip is the one element with a tooltip; since there are no subviews to hang one on,
 // the row registers a tooltip rect and owns it — see `refreshAccountTooltip()`.
 
@@ -112,6 +116,11 @@ public final class SessionRowView: NSTableCellView {
     /// rather than introducing its own: both are warnings, and the two never appear on the same
     /// line (NEEDS YOU sits on the title line, this on the detail line).
     private lazy var memoryBadge = SidebarBadgeLayer(font: badgeFont)
+    /// Estimated spend so far, on the title line next to `NEEDS YOU` rather than the already-crowded
+    /// detail line — see `layout()`. Neutral-tinted (`theme.foregroundMuted`, the account chip's own
+    /// no-colour-configured fallback): this is information, not a warning, so it must not compete
+    /// with the amber badges for attention.
+    private lazy var spendBadge = SidebarBadgeLayer(font: badgeFont)
     private lazy var needsYouBadge = SidebarBadgeLayer(font: badgeFont)
     private lazy var accountChip = SidebarBadgeLayer(font: badgeFont)
 
@@ -153,6 +162,7 @@ public final class SessionRowView: NSTableCellView {
     private var theme: Theme = .default
     private var wtBadgeWidth: CGFloat = 0
     private var memoryBadgeWidth: CGFloat = 0
+    private var spendBadgeWidth: CGFloat = 0
     private var needsYouBadgeWidth: CGFloat = 0
     private var accountChipWidth: CGFloat = 0
     /// What ``refreshAccountTooltip()`` last registered, so it can skip the churn.
@@ -174,6 +184,7 @@ public final class SessionRowView: NSTableCellView {
         root.addSublayer(branchLayer)
         root.addSublayer(wtBadge)
         root.addSublayer(memoryBadge)
+        root.addSublayer(spendBadge)
         root.addSublayer(needsYouBadge)
         root.addSublayer(accountChip)
         root.addSublayer(statusDot)
@@ -236,6 +247,7 @@ public final class SessionRowView: NSTableCellView {
         branchLayer.string = nil
         wtBadge.isHidden = true
         memoryBadge.isHidden = true
+        spendBadge.isHidden = true
         needsYouBadge.isHidden = true
         accountChip.isHidden = true
         removeAllToolTips()
@@ -364,6 +376,16 @@ public final class SessionRowView: NSTableCellView {
             memoryBadgeWidth = 0
         }
 
+        if let spend = model.spendBadge, !spend.isEmpty {
+            spendBadge.isHidden = false
+            let tint = theme.foregroundMuted
+            spendBadgeWidth = spendBadge.configure(
+                text: spend, foreground: tint, background: RGB(r: tint.r, g: tint.g, b: tint.b, a: 0.18))
+        } else {
+            spendBadge.isHidden = true
+            spendBadgeWidth = 0
+        }
+
         needsYouBadge.isHidden = !model.needsAttention
         if model.needsAttention {
             needsYouBadgeWidth = needsYouBadge.configure(
@@ -402,6 +424,7 @@ public final class SessionRowView: NSTableCellView {
     var branchTextLayer: CATextLayer { branchLayer }
     var worktreeBadgeLayer: CALayer { wtBadge }
     var memoryBadgeLayer: CALayer { memoryBadge }
+    var spendBadgeLayer: CALayer { spendBadge }
     var needsYouBadgeLayer: CALayer { needsYouBadge }
     var accountChipLayer: CALayer { accountChip }
     var selectionBackgroundLayer: CALayer { selectionLayer }
@@ -506,6 +529,19 @@ public final class SessionRowView: NSTableCellView {
                 x: x,
                 y: titleY + (Self.titleLineHeight - badgeH) / 2,
                 width: needsYouBadgeWidth,
+                height: badgeH
+            )
+            titleRight = x - Self.badgeGap
+        }
+        // Spend sits just left of NEEDS YOU (or at the right edge, when NEEDS YOU is absent) —
+        // never past it: an urgent row must keep NEEDS YOU in the same place whether or not this
+        // session also happens to have a spend figure.
+        if !spendBadge.isHidden {
+            let x = titleRight - spendBadgeWidth
+            spendBadge.frame = CGRect(
+                x: x,
+                y: titleY + (Self.titleLineHeight - badgeH) / 2,
+                width: spendBadgeWidth,
                 height: badgeH
             )
             titleRight = x - Self.badgeGap

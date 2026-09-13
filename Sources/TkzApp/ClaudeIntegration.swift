@@ -43,6 +43,10 @@ public final class ClaudeIntegration {
     /// Writes `statusLine` into the user's `settings.json`. `nil` when the hook binary isn't
     /// installed, exactly like `installer`.
     public let statuslineInstaller: StatuslineInstaller?
+    /// Sums token usage and estimated spend off each session's own transcript (design: token usage
+    /// and spend per session). Unlike `statusline`, this needs nothing installed or opted into —
+    /// `~/.claude` is already read for the first-prompt card — so it is always present.
+    public let usageReader: TranscriptUsageReader
 
     /// `launch`-frame bindings. A session that exits keeps its entry until the pid is reused by a
     /// later `launch`, which simply overwrites it.
@@ -151,6 +155,8 @@ public final class ClaudeIntegration {
             DispatchQueue.main.async { MainActor.assumeIsolated { box.value?.handle(event) } }
         }
         statuslineInstaller = StatuslineInstaller(directory: directory)
+        usageReader = TranscriptUsageReader(
+            cacheDirectory: TranscriptUsageReader.standardDirectory(supportDirectory: directory))
         box.value = self
 
         let toRegister = accounts.values.filter { store.state.accounts[$0.key] == nil }
@@ -440,6 +446,28 @@ public final class ClaudeIntegration {
             if event.kind == .sessionEnd, store.state.sessions[id]?.live?.ended == true {
                 onClaudeExited?(id)
             }
+            switch event.kind {
+            case .sessionStart, .stop, .sessionEnd, .userPromptSubmit:
+                refreshUsage(for: id)
+            case .notification, .unknown:
+                break
+            }
+        }
+    }
+
+    /// Sums `id`'s transcript for token usage and estimated spend, off the main actor, and lands
+    /// the result on `Session.live.usage` (design: token usage and spend per session). The reader
+    /// keeps its own byte-offset cursor per session, so calling this on every relevant hook is
+    /// cheap — a `Stop` right after `SessionStart`'s full backfill only parses what's new.
+    private func refreshUsage(for id: SessionID) {
+        guard let claudeSessionId = store.state.sessions[id]?.claudeSessionId else { return }
+        let path = transcriptPath(for: id)
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard let usage = await self.usageReader.refresh(
+                sessionId: claudeSessionId, transcriptPath: path)
+            else { return }
+            self.store.update { $0.setSessionUsage(usage, claudeSessionId: claudeSessionId) }
         }
     }
 

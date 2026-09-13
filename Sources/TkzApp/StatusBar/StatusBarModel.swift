@@ -97,6 +97,16 @@ public struct StatusBarModel: Hashable, Sendable {
     /// account and the user runs more than one.
     public var usageTooltip: String?
 
+    /// This session's estimated spend so far, summed off its transcript by `TranscriptUsageReader`.
+    /// `nil` when nothing has been parsed yet *or* when every model used has no pricing entry —
+    /// either way there is no `$` figure to show, only (optionally) the token breakdown in the
+    /// tooltip.
+    public var spendUSD: Double?
+
+    /// The spend badge's tooltip: token counts per model, priced where possible. Already-formatted
+    /// text for the same reason `usageTooltip` is — the model carries derived values only.
+    public var spendTooltip: String?
+
     /// A transient message that replaces the whole strip: "Restored sidebar from backup" after a
     /// `state.json` recovery (M5.1). Deliberately *not* part of `AppState` — it describes something
     /// that happened once at launch, not something the app persists, and `statusModel(for:)` stays
@@ -144,7 +154,9 @@ public struct StatusBarModel: Hashable, Sendable {
         contextPercent: Int? = nil,
         sessionUsage: UsageQuota? = nil,
         weeklyUsage: UsageQuota? = nil,
-        usageTooltip: String? = nil
+        usageTooltip: String? = nil,
+        spendUSD: Double? = nil,
+        spendTooltip: String? = nil
     ) {
         self.notice = notice
         self.branch = branch
@@ -165,6 +177,8 @@ public struct StatusBarModel: Hashable, Sendable {
         self.sessionUsage = sessionUsage
         self.weeklyUsage = weeklyUsage
         self.usageTooltip = usageTooltip
+        self.spendUSD = spendUSD
+        self.spendTooltip = spendTooltip
     }
 
     /// The empty strip — every service silent. Renders as bare background, no separators.
@@ -185,5 +199,15 @@ extension StatusBarModel {
         if hours > 0 { return minutes > 0 ? "\(hours)h \(minutes)m" : "\(hours)h" }
         if minutes > 0 { return "\(minutes)m" }
         return "\(seconds)s"
+    }
+
+    /// `$0.42` / `$12.03` — hand-rolled rather than `NumberFormatter`, for the same reason as
+    /// ``formatResetsIn(_:)``: fixed ASCII, byte-stable across locales and machines. Negative
+    /// amounts clamp to `$0.00` — spend never goes backwards.
+    public static func formatUSD(_ amount: Double) -> String {
+        let cents = max(0, Int((amount * 100).rounded()))
+        let dollars = cents / 100
+        let remainder = cents % 100
+        return "$\(dollars).\(remainder < 10 ? "0" : "")\(remainder)"
     }
 }

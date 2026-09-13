@@ -66,7 +66,8 @@ public enum SidebarRowAdapter {
             needsAttention: session.needsAttention,
             isSelected: state.selection == session.id,
             groupColor: state.groups[session.groupID]?.color,
-            memoryBadge: memoryBadge(for: session)
+            memoryBadge: memoryBadge(for: session),
+            spendBadge: spendBadge(for: session)
         )
     }
 
@@ -95,6 +96,18 @@ public enum SidebarRowAdapter {
     /// One decimal in GB — "4.7 GB". Only ever called above the GB-scale threshold.
     static func formatBytes(_ bytes: UInt64) -> String {
         String(format: "%.1f GB", Double(bytes) / (1024 * 1024 * 1024))
+    }
+
+    /// This session's estimated spend so far, or `nil` to hide the badge — visibility is entirely
+    /// data-driven, like every other sidebar badge (``memoryBadge(for:)``, the `WT` badge, the
+    /// account chip): none of them are behind a user preference, so this one is not either.
+    ///
+    /// Hidden below one cent: a `$0.00` badge would read as "this cost nothing", the same
+    /// misleading claim `totalCostUSD == nil` (nothing parsed yet, or every model used is unpriced)
+    /// already avoids by having no figure at all.
+    static func spendBadge(for session: Session) -> String? {
+        guard let cost = session.live?.usage?.totalCostUSD, cost >= 0.005 else { return nil }
+        return StatusBarModel.formatUSD(cost)
     }
 
     /// The model for one 28 pt group header.

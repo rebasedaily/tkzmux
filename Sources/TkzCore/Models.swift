@@ -428,6 +428,11 @@ public struct LiveSessionState: Hashable, Sendable {
     public var portOwners: [UInt16: String]
     /// The per-session statusline sidecar (context %, model, PR).
     public var context: SessionSidecar?
+    /// Token usage and estimated spend, summed off this session's transcript by
+    /// `TranscriptUsageReader`. Process state like `context`: cheap to rebuild (the reader's own
+    /// cursor cache survives a relaunch under `~/Library/Application Support/tkzmux/usage/`), so
+    /// there is nothing here worth persisting in `state.json` itself.
+    public var usage: SessionUsage?
     /// The `claude` process (when a descriptor is bound) or the shell is running. `false` only once
     /// the pty itself has gone away — see `AppState.setAlive`/`descriptorLost`.
     public var alive: Bool
@@ -487,6 +492,7 @@ public struct LiveSessionState: Hashable, Sendable {
         ports: [UInt16] = [],
         portOwners: [UInt16: String] = [:],
         context: SessionSidecar? = nil,
+        usage: SessionUsage? = nil,
         alive: Bool = true,
         ended: Bool = false,
         pendingNotification: PendingNotification? = nil,
@@ -511,6 +517,7 @@ public struct LiveSessionState: Hashable, Sendable {
         self.ports = ports
         self.portOwners = portOwners
         self.context = context
+        self.usage = usage
         self.alive = alive
         self.ended = ended
         self.pendingNotification = pendingNotification
@@ -1166,6 +1173,59 @@ public struct SessionSidecar: Hashable, Sendable, Codable {
         try c.encodeIfPresent(worktree, forKey: .worktree)
         try c.encodeIfPresent(pr, forKey: .pr)
         try c.encodeIfPresent(cost, forKey: .cost)
+    }
+}
+
+// MARK: - Token usage / spend
+
+/// One model's token totals for a session, summed out of its transcript by `TranscriptUsageReader`
+/// (ClaudeBridge), and their estimated cost from ``ModelPricing``. `costUSD` is `nil` when
+/// `modelId` has no pricing entry — tokens are still shown, just with no `$` figure.
+public struct ModelUsage: Hashable, Sendable, Codable {
+    public var modelId: String
+    public var inputTokens: Int
+    public var outputTokens: Int
+    public var cacheCreationTokens: Int
+    public var cacheReadTokens: Int
+    /// Already counted within `outputTokens` (Anthropic bills thinking as output) — kept separately
+    /// only so the breakdown can say how much of the output was thinking.
+    public var thinkingTokens: Int
+    public var costUSD: Double?
+
+    public init(
+        modelId: String,
+        inputTokens: Int = 0,
+        outputTokens: Int = 0,
+        cacheCreationTokens: Int = 0,
+        cacheReadTokens: Int = 0,
+        thinkingTokens: Int = 0,
+        costUSD: Double? = nil
+    ) {
+        self.modelId = modelId
+        self.inputTokens = inputTokens
+        self.outputTokens = outputTokens
+        self.cacheCreationTokens = cacheCreationTokens
+        self.cacheReadTokens = cacheReadTokens
+        self.thinkingTokens = thinkingTokens
+        self.costUSD = costUSD
+    }
+}
+
+/// A session's token usage and estimated spend, summed across every model it used. Published by
+/// `TranscriptUsageReader` off the session's own `~/.claude` transcript — the only place Claude
+/// Code records per-turn token counts — and joined onto `Session.live.usage` the same way the
+/// statusline sidecar joins onto `Session.live.context`.
+public struct SessionUsage: Hashable, Sendable, Codable {
+    public var perModel: [ModelUsage]
+    /// `nil` when not one of `perModel`'s models has a pricing entry — the status bar shows the
+    /// token counts alone rather than a `$0` that would claim nothing was spent.
+    public var totalCostUSD: Double?
+    public var lastUpdatedAt: Date
+
+    public init(perModel: [ModelUsage], totalCostUSD: Double?, lastUpdatedAt: Date) {
+        self.perModel = perModel
+        self.totalCostUSD = totalCostUSD
+        self.lastUpdatedAt = lastUpdatedAt
     }
 }
 

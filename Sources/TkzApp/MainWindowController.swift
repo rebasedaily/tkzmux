@@ -2143,7 +2143,22 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         model.sessionUsage = Self.quota(usage?.fiveHour, now: now)
         model.weeklyUsage = Self.quota(usage?.sevenDay, now: now)
         model.usageTooltip = usageTooltip(for: state)
+        model.spendUSD = session.live?.usage?.totalCostUSD
+        model.spendTooltip = Self.spendTooltip(for: session.live?.usage)
         return model
+    }
+
+    /// One line per model this session has used: tokens, and `$` where the model is priced.
+    /// `nil` when there is nothing parsed yet.
+    static func spendTooltip(for usage: SessionUsage?) -> String? {
+        guard let usage, !usage.perModel.isEmpty else { return nil }
+        let lines = usage.perModel.map { model -> String in
+            let tokens = "\(model.inputTokens) in · \(model.outputTokens) out"
+                + " · \(model.cacheReadTokens) cache read · \(model.cacheCreationTokens) cache write"
+            let cost = model.costUSD.map { " — \(StatusBarModel.formatUSD($0))" } ?? " — unpriced"
+            return "\(model.modelId): \(tokens)\(cost)"
+        }
+        return lines.joined(separator: "\n")
     }
 
     /// One `UsageWindow` as the strip wants it. A reset already in the past carries no countdown:
