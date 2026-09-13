@@ -16,7 +16,8 @@ import Testing
             cacheCreationTokens: 1_000_000,
             cacheReadTokens: 1_000_000)
         // Sonnet 5: $3 input + $15 output + $3.75 cache write + $0.30 cache read, per million.
-        #expect(cost == 3 + 15 + 3.75 + 0.30)
+        let expected: Double = 3 + 15 + 3.75 + 0.30
+        #expect(cost == expected)
     }
 
     @Test("A model with no pricing entry costs nothing, never a guess")
