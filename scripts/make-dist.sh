@@ -103,23 +103,13 @@ echo "==> shasum -a 256"
 SHA256="$(awk '{print $1}' < "$ZIP.sha256")"
 
 # --------------------------------------------------------------------------------- release notes
-# `git describe --tags --abbrev=0 HEAD^` fails on the very first release — there is no earlier
-# tag, and if HEAD *is* the root commit there is no HEAD^ either — so `|| true` and fall back to
-# the whole history. `git rev-list --max-parents=0 HEAD` names the root commit; `<root>..HEAD`
-# would exclude the root commit itself, and for a first release we want it, so the fallback range
-# is plain `HEAD` (root-inclusive by definition).
-PREV_TAG="$(git describe --tags --abbrev=0 --match 'v*' "$TAG^" 2>/dev/null || true)"
-LOG_RANGE="HEAD"
-if [[ -n "$PREV_TAG" ]]; then LOG_RANGE="$PREV_TAG..HEAD"; fi
+# The changes part (features / bug fixes / other, the commit list, the thank-you line) is
+# scripts/release-notes.sh, so it can be previewed without cutting anything:
+# `scripts/release-notes.sh v0.9.7`. Only the install block, which needs the zip and its
+# checksum, is added here.
 NOTES="$DIST_DIR/notes.md"
 {
-  if [[ -n "$PREV_TAG" ]]; then
-    echo "### Changes since $PREV_TAG"
-  else
-    echo "### Changes (first release: everything since $(git rev-list --max-parents=0 HEAD | tail -1 | cut -c1-7))"
-  fi
-  echo
-  git log --oneline --no-decorate --no-merges "$LOG_RANGE"
+  scripts/release-notes.sh "$TAG"
   echo
   echo "### Install"
   echo

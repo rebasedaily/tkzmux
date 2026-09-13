@@ -2,8 +2,9 @@
 #
 # This is `make dist` (scripts/make-dist.sh) with the two things a laptop has and a runner does
 # not: a keychain holding the Developer ID Application identity, and a notarytool credential
-# profile. Everything else — version derivation, zipping, checksums, the GitHub release — stays
-# in the script so that a release can also be cut by hand. Runbook: docs/release.md.
+# profile. Everything else — version derivation, zipping, checksums, the release notes
+# (scripts/release-notes.sh), the GitHub release — stays in the script so that a release can also
+# be cut by hand. Runbook: docs/release.md.
 #
 # Secrets (see docs/release.md -> "CI secrets and rotation"):
 #   APPLE_DEVELOPER_ID_P12_BASE64    base64 of the Developer ID Application .p12 (with chain)
