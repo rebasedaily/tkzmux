@@ -46,6 +46,9 @@ make app            # release build, ad-hoc signed → build/tkzmux.app
 open build/tkzmux.app
 ```
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full local dev loop (testing, swapping a Homebrew
+install for a local build, code conventions) and how to contribute a change.
+
 Everything else is plain SwiftPM, no `.xcodeproj`: `swift build`, `swift test`, `swift run tkzmux`.
 
 `make app` compiles the shaders with `xcrun metal`, which on Xcode 26 is a separate download:

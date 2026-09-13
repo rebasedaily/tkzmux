@@ -361,6 +361,35 @@ extension AppState {
         autoResumeOnLaunch = enabled
     }
 
+    /// The global on/off for token usage/spend (design: enable/disable, all sessions). Turning it
+    /// off clears every session's already-summed `live.usage` right away, rather than leaving a
+    /// stale figure on screen until the next hook fires; turning it back on needs a fresh read,
+    /// which the reducer cannot itself trigger (`ClaudeIntegration.refreshAllUsage()` is the
+    /// caller's job after this returns).
+    public mutating func setShowSessionSpend(_ enabled: Bool) {
+        showSessionSpend = enabled
+        guard !enabled else { return }
+        // Only a session that already has live state *and* an already-summed figure: `updateLive`
+        // creates live state for a session that has none, and a restored-but-never-shown row
+        // (no `live` at all — see `Session.status`) must not be woken into existence just because
+        // the global switch flipped off.
+        for id in sessions.keys where sessions[id]?.live?.usage != nil {
+            updateLive(id) { $0.usage = nil }
+        }
+    }
+
+    /// One session's own opt-out, alongside the global switch (design: enable/disable, per
+    /// session). Same immediate-clear rule as `setShowSessionSpend(_:)` — including the same
+    /// "only if there is live state to clear" guard — and the same "the caller re-triggers a read
+    /// to turn it back on" split.
+    public mutating func setSpendTrackingDisabled(_ id: SessionID, _ disabled: Bool) {
+        guard sessions[id] != nil else { return }
+        sessions[id]?.spendTrackingDisabled = disabled ? true : nil
+        if disabled, sessions[id]?.live?.usage != nil {
+            updateLive(id) { $0.usage = nil }
+        }
+    }
+
     public mutating func setStatuslineOffered(_ offered: Bool) {
         statuslineOffered = offered
     }
@@ -444,6 +473,15 @@ extension AppState {
             .first(where: { $0.live?.context?.sessionId == claudeSessionId })?.id
         else { return }
         updateLive(id) { $0.context = nil }
+    }
+
+    /// What `TranscriptUsageReader` (ClaudeBridge) summed off a session's transcript, joined on
+    /// Claude's own session id — same reasoning as ``setSessionSidecar(_:)``: the reader knows
+    /// nothing about tkzmux rows, only about a Claude session id and its transcript.
+    public mutating func setSessionUsage(_ usage: SessionUsage, claudeSessionId: String) {
+        guard let id = sessions.values.first(where: { $0.claudeSessionId == claudeSessionId })?.id
+        else { return }
+        updateLive(id) { $0.usage = usage }
     }
 }
 

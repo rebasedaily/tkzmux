@@ -343,6 +343,13 @@ public final class StatusBarView: NSView {
             }
         }
 
+        if let spend = model.spendUSD {
+            out.append(StatusItem(
+                .runs([StatusRun(text: StatusBarModel.formatUSD(spend), color: theme.statusBarText)]),
+                tooltip: model.spendTooltip ?? "Estimated spend this session",
+                trailing: true))
+        }
+
         if let context = model.contextPercent {
             out.append(StatusItem(
                 meter("Context", percents: [context], base: theme.contextMeter, theme: theme),

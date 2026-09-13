@@ -37,6 +37,11 @@ public struct AppState: Hashable, Sendable {
     /// The release the user closed the sidebar's update card for (TKZ-50). That version never
     /// shows the card again; a newer one does. Durable, in `PersistedPreferences`.
     public var dismissedUpdateVersion: String?
+    /// The token usage/spend feature's global on/off switch (design: token usage and spend per
+    /// session — enable/disable). A session can also opt out on its own via
+    /// `Session.spendTrackingDisabled`; that per-session flag is checked in addition to this one,
+    /// never instead of it. Durable, in `PersistedPreferences`.
+    public var showSessionSpend: Bool
     /// The active colour scheme. The ☾/☀ toggle in the toolbar writes it; `MainWindowController` is
     /// its sole observer, via `ChangeSet.theme`. Durable, in `PersistedPreferences`.
     public var themePreset: Theme.Preset
@@ -57,6 +62,7 @@ public struct AppState: Hashable, Sendable {
         autoResumeOnLaunch: Bool = false,
         statuslineOffered: Bool = false,
         dismissedUpdateVersion: String? = nil,
+        showSessionSpend: Bool = true,
         themePreset: Theme.Preset = Theme.default.preset,
         update: UpdateState = UpdateState()
     ) {
@@ -72,6 +78,7 @@ public struct AppState: Hashable, Sendable {
         self.autoResumeOnLaunch = autoResumeOnLaunch
         self.statuslineOffered = statuslineOffered
         self.dismissedUpdateVersion = dismissedUpdateVersion
+        self.showSessionSpend = showSessionSpend
         self.themePreset = themePreset
         self.update = update
     }

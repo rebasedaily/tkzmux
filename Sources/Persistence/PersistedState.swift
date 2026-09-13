@@ -73,21 +73,28 @@ public struct PersistedPreferences: Hashable, Sendable, Codable {
     /// build must degrade to a warning in `apply(to:)`, not throw out of `init(from:)` and take the
     /// whole `state.json` with it.
     public var themePreset: String?
+    /// The token usage/spend feature's global on/off (design: enable/disable). Absent in a file
+    /// written before this existed, which must default to *on* — `decodeIfPresent(...) ?? true`
+    /// below, not `?? false` like the other switches here, all of which default off.
+    public var showSessionSpend: Bool
 
     public init(
         autoResumeOnLaunch: Bool = false,
         statuslineOffered: Bool = false,
         dismissedUpdateVersion: String? = nil,
-        themePreset: String? = nil
+        themePreset: String? = nil,
+        showSessionSpend: Bool = true
     ) {
         self.autoResumeOnLaunch = autoResumeOnLaunch
         self.statuslineOffered = statuslineOffered
         self.dismissedUpdateVersion = dismissedUpdateVersion
         self.themePreset = themePreset
+        self.showSessionSpend = showSessionSpend
     }
 
     private enum CodingKeys: String, CodingKey {
         case autoResumeOnLaunch, statuslineOffered, dismissedUpdateVersion, themePreset
+        case showSessionSpend
     }
 
     public init(from decoder: any Decoder) throws {
@@ -96,6 +103,7 @@ public struct PersistedPreferences: Hashable, Sendable, Codable {
         statuslineOffered = try c.decodeIfPresent(Bool.self, forKey: .statuslineOffered) ?? false
         dismissedUpdateVersion = try c.decodeIfPresent(String.self, forKey: .dismissedUpdateVersion)
         themePreset = try c.decodeIfPresent(String.self, forKey: .themePreset)
+        showSessionSpend = try c.decodeIfPresent(Bool.self, forKey: .showSessionSpend) ?? true
     }
 }
 
@@ -185,7 +193,8 @@ public struct PersistedState: Hashable, Sendable, Codable {
                 autoResumeOnLaunch: state.autoResumeOnLaunch,
                 statuslineOffered: state.statuslineOffered,
                 dismissedUpdateVersion: state.dismissedUpdateVersion,
-                themePreset: state.themePreset.rawValue))
+                themePreset: state.themePreset.rawValue,
+                showSessionSpend: state.showSessionSpend))
     }
 
     // MARK: Restore
@@ -239,6 +248,7 @@ public struct PersistedState: Hashable, Sendable, Codable {
         state.autoResumeOnLaunch = preferences.autoResumeOnLaunch
         state.statuslineOffered = preferences.statuslineOffered
         state.dismissedUpdateVersion = preferences.dismissedUpdateVersion
+        state.showSessionSpend = preferences.showSessionSpend
         if let raw = preferences.themePreset {
             if let preset = Theme.Preset(rawValue: raw) {
                 state.themePreset = preset

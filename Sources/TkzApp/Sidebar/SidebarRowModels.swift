@@ -102,6 +102,13 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
     /// transparent, exactly as on the header; it is never `Theme.groupEdgeDefault`.
     public var groupColor: RGB?
 
+    /// This session's estimated spend so far, pre-formatted (`"$0.42"`, `StatusBarModel.formatUSD`)
+    /// — the row view draws text, not currency logic. `nil` hides the badge, following the same rule
+    /// as ``memoryBadge``: `SidebarRowAdapter` maps `Session.live.usage?.totalCostUSD == nil` (never
+    /// parsed yet, or every model used is unpriced) straight to `nil`, never to a `$0.00` that would
+    /// claim nothing was spent.
+    public var spendBadge: String?
+
     public init(
         title: String,
         branch: String? = nil,
@@ -114,7 +121,8 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
         needsAttention: Bool = false,
         isSelected: Bool = false,
         groupColor: RGB? = nil,
-        memoryBadge: String? = nil
+        memoryBadge: String? = nil,
+        spendBadge: String? = nil
     ) {
         self.title = title
         self.branch = branch
@@ -128,6 +136,7 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
         self.isSelected = isSelected
         self.groupColor = groupColor
         self.memoryBadge = memoryBadge
+        self.spendBadge = spendBadge
     }
 }
 

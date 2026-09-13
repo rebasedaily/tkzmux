@@ -41,6 +41,9 @@ private func makeState() -> AppState {
     state.sidebarWidth = 372
     state.setSidebarVisible(false)
     state.setAutoResumeOnLaunch(true)
+    // The non-default value, so a round trip that silently dropped it would fail loudly rather
+    // than coincidentally matching `PersistedPreferences`'s own default.
+    state.setShowSessionSpend(false)
     // A split and a second tab, so every assertion built on this fixture covers the layout too.
     _ = state.splitPane(two.focusedTerminalID, axis: .vertical, ratio: 0.3)
     _ = state.addTab(to: two.id)
@@ -80,6 +83,7 @@ private func makeState() -> AppState {
         #expect(restored.windowFrame == original.windowFrame)
         #expect(restored.shortcuts == original.shortcuts)
         #expect(restored.autoResumeOnLaunch == original.autoResumeOnLaunch)
+        #expect(restored.showSessionSpend == original.showSessionSpend)
     }
 }
 
@@ -98,6 +102,9 @@ private func makeState() -> AppState {
     decoded.state.apply(to: &restored)
     #expect(restored.autoResumeOnLaunch == false)
     #expect(restored.dismissedUpdateVersion == nil)
+    // A file predating this switch has no key for it either; missing must default to *on*, unlike
+    // every other switch in this block, which defaults off.
+    #expect(restored.showSessionSpend == true)
     #expect(restored.sessions.count == state.sessions.count)
 }
 
