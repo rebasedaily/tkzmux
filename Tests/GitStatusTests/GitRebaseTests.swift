@@ -118,6 +118,61 @@ import TkzCore
         #expect(GitRebase.fetch(Self.request(for: clone, remote: nil)) == nil)
     }
 
+    // MARK: Branch drift
+
+    /// The worktree's own terminal switched branches after the sheet captured `expectedBranch` —
+    /// the exact race `run` re-checks `HEAD` for immediately before the write.
+    @Test func aBranchSwitchAfterTheRequestWasBuiltRefusesTheRebase() {
+        let fixture = TKZ26Fixture()
+        defer { fixture.destroy() }
+        let (_, seed, clone) = fixture.makeClone()
+        fixture.git(["switch", "-c", "feature"], in: clone)
+        fixture.commit("f1\n", to: "feature.txt", in: clone)
+        fixture.commits(1, in: seed)
+        fixture.git(["push", "origin", "main"], in: seed)
+        let before = Self.head(fixture, clone)
+
+        var request = Self.request(for: clone)
+        request.expectedBranch = "feature"
+        fixture.git(["switch", "-c", "other"], in: clone)
+
+        let outcome = GitRebase.run(request)
+
+        if case .failed(let message) = outcome {
+            #expect(message.contains("moved"))
+        } else {
+            Issue.record("expected a refusal, got \(outcome)")
+        }
+        #expect(Self.head(fixture, clone) == before)
+        #expect(!Self.hasRebaseInProgress(clone))
+    }
+
+    /// A detached `HEAD` reached the same way: `symbolic-ref` returns nothing, which must not
+    /// match a non-nil `expectedBranch` either.
+    @Test func aDetachAfterTheRequestWasBuiltRefusesTheRebase() {
+        let fixture = TKZ26Fixture()
+        defer { fixture.destroy() }
+        let (_, seed, clone) = fixture.makeClone()
+        fixture.git(["switch", "-c", "feature"], in: clone)
+        fixture.commit("f1\n", to: "feature.txt", in: clone)
+        fixture.commits(1, in: seed)
+        fixture.git(["push", "origin", "main"], in: seed)
+        let before = Self.head(fixture, clone)
+
+        var request = Self.request(for: clone)
+        request.expectedBranch = "feature"
+        fixture.git(["checkout", "HEAD~0"], in: clone)
+
+        let outcome = GitRebase.run(request)
+
+        if case .failed(let message) = outcome {
+            #expect(message.contains("moved"))
+        } else {
+            Issue.record("expected a refusal, got \(outcome)")
+        }
+        #expect(Self.head(fixture, clone) == before)
+    }
+
     // MARK: Conflicts
 
     @Test func aConflictAbortsAndRestoresTheTree() {
