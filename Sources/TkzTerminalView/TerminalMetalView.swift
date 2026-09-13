@@ -746,6 +746,16 @@ public final class TerminalMetalView: NSView {
         inputDelegate?.terminalView(self, handle: event) ?? false
     }
 
+    /// Whether the pointer at `event` would land on this view — nothing hidden about it, and no
+    /// sibling drawn over it at that point. `NSTrackingArea` does not check either, so a hover
+    /// handler has to. Outside a window there is nothing to be covered by.
+    public func isPointerTarget(_ event: NSEvent) -> Bool {
+        guard !isHiddenOrHasHiddenAncestor else { return false }
+        guard let window, let content = window.contentView else { return true }
+        guard let hit = content.hitTest(event.locationInWindow) else { return false }
+        return hit === self || hit.isDescendant(of: self)
+    }
+
     public override func keyDown(with event: NSEvent) {
         if !forward(event) { super.keyDown(with: event) }
     }

@@ -244,7 +244,8 @@ struct MainMenuTests {
 
         for action in [ShortcutAction.newSession, .searchSessions, .commandPalette, .toggleSidebar,
                        .jumpToNeedsYou, .nextSession, .previousSession, .closeTerminal,
-                       .renameSession, .copyLastMessage, .showFirstPrompt, .removeShellIntegration,
+                       .renameSession, .copyLastMessage, .showFirstPrompt, .showChanges,
+                       .removeShellIntegration,
                        .openFolder,
                        .statusLineIntegration, .resumeSession, .resumeAllInGroup,
                        .toggleAutoResume, .toggleSessionSpend] {
