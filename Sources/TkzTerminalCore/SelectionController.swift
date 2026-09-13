@@ -488,3 +488,46 @@ public enum HyperlinkLookup {
         return (uri, first...last)
     }
 }
+
+// MARK: - Row text
+
+/// The text of one row, cell by cell, for ⌘-click on a file path printed as plain text.
+///
+/// Same locking rule as `HyperlinkLookup`: the caller holds the terminal lock for the whole walk.
+public enum RowTextLookup {
+    /// One string per column of `point`'s row — the cell's grapheme cluster, or `""` for a blank
+    /// cell or the spacer half of a wide character. Index `i` is column `i`, so a column range
+    /// found in the result is directly a column range on screen.
+    public static func cells(
+        onRowOf point: TerminalGridPoint,
+        in terminal: GhosttyTerminalHandle,
+        columns: UInt16
+    ) -> [String] {
+        var out: [String] = []
+        out.reserveCapacity(Int(columns))
+        var buffer = [UInt32](repeating: 0, count: 16)
+        for x in 0..<columns {
+            var ref = GhosttyGridRef()
+            ref.size = MemoryLayout<GhosttyGridRef>.stride
+            let cell = TerminalGridPoint(x: x, y: point.y, space: point.space)
+            guard ghostty_terminal_grid_ref(terminal.raw, cell.ghostty, &ref) == GHOSTTY_SUCCESS else {
+                out.append("")
+                continue
+            }
+            var written = 0
+            let result = buffer.withUnsafeMutableBufferPointer { storage in
+                ghostty_grid_ref_graphemes(&ref, storage.baseAddress, storage.count, &written)
+            }
+            guard result == GHOSTTY_SUCCESS, written > 0 else {
+                out.append("")
+                continue
+            }
+            var scalars = String.UnicodeScalarView()
+            for codepoint in buffer.prefix(written) where codepoint != 0 {
+                if let scalar = Unicode.Scalar(codepoint) { scalars.append(scalar) }
+            }
+            out.append(String(scalars))
+        }
+        return out
+    }
+}
