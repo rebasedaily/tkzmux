@@ -111,6 +111,10 @@ current on purpose.
   test target per Swift library target.
 - Keep `swift build` and `swift test --no-parallel` green before opening the PR.
 - Describe *why* in the PR description, not just what changed — the diff already shows what.
+- Release notes group commits into *New features*, *Bug fixes* and *Other changes* by guessing
+  from the subject line. To steer the guess, label the PR `bug`, `enhancement` or `documentation`,
+  or start the subject with `fix:` / `feat:` / `docs:` / `chore:`. Preview what the next release
+  would say with `scripts/release-notes.sh HEAD`.
 
 ## Release process
 
