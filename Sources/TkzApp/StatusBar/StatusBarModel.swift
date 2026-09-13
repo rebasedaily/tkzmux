@@ -47,6 +47,11 @@ public struct StatusBarModel: Hashable, Sendable {
     /// independently of the line counts.
     public var diffFiles: Int?
 
+    /// The chord that opens the changes viewer, already formatted (`⇧⌘G`), for the diff chips'
+    /// tooltip — resolved by the caller from `ShortcutsTable` so an override shows its own key.
+    /// `nil` leaves the tooltip at "Click to browse the changes".
+    public var changesShortcut: String?
+
     /// Commits ahead of the upstream branch. Rendered `↑2`. `nil` when there is no upstream.
     public var ahead: Int?
 
@@ -144,6 +149,7 @@ public struct StatusBarModel: Hashable, Sendable {
         diffAdded: Int? = nil,
         diffRemoved: Int? = nil,
         diffFiles: Int? = nil,
+        changesShortcut: String? = nil,
         ahead: Int? = nil,
         behind: Int? = nil,
         upstream: String? = nil,
@@ -166,6 +172,7 @@ public struct StatusBarModel: Hashable, Sendable {
         self.diffAdded = diffAdded
         self.diffRemoved = diffRemoved
         self.diffFiles = diffFiles
+        self.changesShortcut = changesShortcut
         self.ahead = ahead
         self.behind = behind
         self.upstream = upstream

@@ -28,6 +28,7 @@ this table; nothing hard-codes a key equivalent.
 | `reloadConfig` | ⇧⌘, | **No handler yet — hidden** (TKZ-56). See *Hidden commands* below |
 | `copyLastMessage` | ⇧⌘C | Copy the selected session's last Stop message (M3.4) |
 | `showFirstPrompt` | ⌥⌘P | Glass card over the terminal with the selected session's first prompt and Claude's recap (design 2c.5); again or Esc closes. Scrolling up a few rows in a Claude session *peeks* the same card without taking the keyboard; scrolling back down (or typing) hides it, and the chord pins it |
+| `showChanges` | ⇧⌘G | View-only changes viewer over the terminal (design 2c.2): the changed files of the selected session's repo with per-file `+/−`, each file's diff inline or split, against `HEAD` or the branch's upstream. Also opened by clicking the `+142 −38` / `12 files` chips in the status bar. Inside: ↑/↓ walk the files, Page Up/Down and Home/End scroll the diff, Esc, the header's ✕ or the chord again returns to the terminal. The artboard says ⌘D, which is *Split Vertically* here |
 | `removeShellIntegration` | — | Delete the claude shim and the zsh/bash/fish wrappers under Application Support (M3.3, TKZ-33); app menu |
 | `statusLineIntegration` | — | Install or remove tkzmux's `statusLine` command, behind a consent sheet (TKZ-32); app menu |
 | `newTerminal` | ⌘T | Another terminal in this session, as a new tab |

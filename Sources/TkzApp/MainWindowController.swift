@@ -141,6 +141,20 @@ final class DetailViewController: NSViewController {
         tabStrip.isHidden = !visible
     }
 
+    /// Puts the changes viewer over the terminal container — panes, tab strip and empty state
+    /// alike — leaving the status bar below it visible, as 2c.2 draws it. Added last, so it is
+    /// above the container in z; hidden until `ChangesViewerController.present`.
+    func install(changesView: NSView) {
+        changesView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(changesView)
+        NSLayoutConstraint.activate([
+            changesView.topAnchor.constraint(equalTo: terminalContainer.topAnchor),
+            changesView.leadingAnchor.constraint(equalTo: terminalContainer.leadingAnchor),
+            changesView.trailingAnchor.constraint(equalTo: terminalContainer.trailingAnchor),
+            changesView.bottomAnchor.constraint(equalTo: terminalContainer.bottomAnchor),
+        ])
+    }
+
     /// The empty state's caption. A no-op when the view is the plain `NSView` a test injected.
     var emptyStateMessage: String {
         get { (emptyState as? EmptyStateView)?.message ?? "" }
@@ -331,6 +345,8 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// ⌥⌘P — the selected session's first prompt and Claude's recap, as a glass card over the
     /// terminal (design 2c.5).
     public let promptCard: PromptCardController
+    /// The view-only changes viewer over the terminal (design 2c.2 / TKZ-58).
+    let changes: ChangesViewerController
     /// The other way onto the card: scrolling up in the focused terminal peeks it. One policy for
     /// the window — it only ever describes the selected row's focused pane, and is reset when
     /// that changes.
@@ -481,6 +497,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         let cheatSheet = CheatSheetOverlayController(theme: theme)
         self.cheatSheet = cheatSheet
         self.promptCard = PromptCardController(theme: theme)
+        self.changes = ChangesViewerController(theme: theme)
         self.chrome = ChromeViewController(
             splitViewController: splitViewController, overlay: cheatSheet.view, theme: theme)
 
@@ -521,6 +538,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         wirePalette()
         wireCheatSheet()
         wirePromptCard()
+        wireChangesViewer()
         wireTabStrip()
         registerMenuHandlers()
         observeStore()
@@ -1084,6 +1102,30 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    // MARK: - Changes viewer (design 2c.2 / TKZ-58)
+
+    private func wireChangesViewer() {
+        detail.install(changesView: changes.view)
+        changes.onDismiss = { [weak self] in self?.focusTerminalIfSessionShown() }
+        statusBar.onShowChanges = { [weak self] in self?.toggleChangesViewer() }
+    }
+
+    /// ⇧⌘G, or a click on the status bar's diff chips: the viewer for the selected row's
+    /// repository, or — when it is already up — back to the terminal.
+    public func toggleChangesViewer() {
+        if changes.isShown {
+            changes.dismiss()
+            return
+        }
+        guard let id = store.state.selection, let session = store.state.sessions[id] else { return }
+        // The repo's toplevel, not the pane's cwd: paths in the viewer are toplevel-relative,
+        // and for a worktree that is the worktree's own root. Before `GitStatusService` has
+        // detected the repo the cwd is the best guess there is.
+        let toplevel = git?.service.repoInfo(for: id)?.toplevel ?? session.effectiveCwd
+        guard !toplevel.isEmpty else { return }
+        changes.present(for: id, toplevel: toplevel, git: session.live?.git)
+    }
+
     /// The card's data comes from `claude` (set later by `AppDelegate`); only the notice is wired
     /// here. Until the coordinator exists the card shows its empty states.
     private func wirePromptCard() {
@@ -1524,6 +1566,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
         cheatSheet.stop()
         promptCard.dismiss()
+        changes.dismiss()
         if let commandKeyMonitor {
             NSEvent.removeMonitor(commandKeyMonitor)
             self.commandKeyMonitor = nil
@@ -1834,8 +1877,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         if change.selection {
             applySelection(focusTerminal: true)
             updateToolbarTitle()
-            // The card is about one row; another row is a different question.
+            // The card is about one row; another row is a different question. The changes
+            // viewer likewise.
             promptCard.dismiss()
+            changes.dismiss()
             _ = scrollReveal.reset()
         }
         if change.chrome {
@@ -1877,6 +1922,11 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         if change.selection || (selected.map(change.touches) ?? false) {
             applyPaneHeaders()
             applyStartupOverlay()
+        }
+        // The viewer re-reads when its row's git numbers moved — FSEvents, already debounced by
+        // `GitStatusService`, arriving here as a new `GitSummary`.
+        if let id = changes.sessionID, change.touches(id) {
+            changes.gitSummaryChanged(store.state.sessions[id]?.live?.git)
         }
         git?.apply(change)
     }
@@ -2122,6 +2172,8 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         model.diffAdded = git.map(\.insertions)
         model.diffRemoved = git.map(\.deletions)
         model.diffFiles = git.map(\.changedFiles)
+        // The chips' tooltip names the chord that does the same thing, override and all.
+        model.changesShortcut = ShortcutsTable.resolved(state: state)[.showChanges]?.displayString
         // No upstream is a *state*, not an absence: the strip draws `↑– ↓–` dimmed instead of the
         // `↑0 ↓0` that would claim the branch is in sync with a remote it does not have.
         model.upstream = git?.upstream
@@ -2515,6 +2567,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         newSessionMenu.theme = new
         palette.theme = new
         promptCard.theme = new
+        changes.theme = new
         cheatSheet.setTheme(new)
 
         // The palette and the prompt card are separate `NSPanel`s and re-derive their own
@@ -3244,6 +3297,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         dispatcher.setHandler(.renameSession) { [weak self] in self?.renameSelectedSession() }
         dispatcher.setHandler(.copyLastMessage) { [weak self] in self?.copyLastMessage() }
         dispatcher.setHandler(.showFirstPrompt) { [weak self] in self?.toggleFirstPromptCard() }
+        dispatcher.setHandler(.showChanges) { [weak self] in self?.toggleChangesViewer() }
         dispatcher.setHandler(.removeShellIntegration) { [weak self] in self?.removeShellIntegration() }
         dispatcher.setHandler(.statusLineIntegration) { [weak self] in self?.statusLineIntegration() }
         // M5.2

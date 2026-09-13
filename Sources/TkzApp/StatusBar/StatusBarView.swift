@@ -120,8 +120,8 @@ enum StatusSegment: Equatable, Sendable {
 struct StatusItem: Equatable, Sendable {
     var segment: StatusSegment
     var tooltip: String?
-    /// Opened in the default browser on click; also what makes the cursor a pointing hand.
-    var url: URL?
+    /// What a click does; also what makes the cursor a pointing hand. `nil` = inert text.
+    var action: StatusAction?
     /// `false` = glued to the previous item with a single space instead of ` · `. The port list is
     /// one visual group (`:5101 :64566`) made of independently clickable items.
     var separated: Bool = true
@@ -131,14 +131,29 @@ struct StatusItem: Equatable, Sendable {
 
     init(
         _ segment: StatusSegment, tooltip: String? = nil, url: URL? = nil,
-        separated: Bool = true, trailing: Bool = false
+        action: StatusAction? = nil, separated: Bool = true, trailing: Bool = false
     ) {
         self.segment = segment
         self.tooltip = tooltip
-        self.url = url
+        self.action = action ?? url.map(StatusAction.open)
         self.separated = separated
         self.trailing = trailing
     }
+
+    /// The URL an `.open` action carries — the PR badge's, a port's. `nil` for every other action.
+    var url: URL? {
+        if case .open(let url) = action { return url }
+        return nil
+    }
+}
+
+/// The two things a click on the strip can do. Decided where the content is decided (`items`),
+/// never in the mouse handler.
+enum StatusAction: Equatable, Sendable {
+    /// Open in the default browser: the PR badge, each port.
+    case open(URL)
+    /// Open the changes viewer (design 2c.2 / TKZ-58): the `+142 −38` and `12 files` chips.
+    case showChanges
 }
 
 // MARK: - View
@@ -283,9 +298,12 @@ public final class StatusBarView: NSView {
             if !diff.isEmpty { diff.append(StatusRun(text: " ", color: theme.foregroundDim)) }
             diff.append(StatusRun(text: "\u{2212}\(removed)", color: theme.diffRemove))  // −
         }
+        // Both diff chips open the changes viewer (2c.2): the artboard's caption names the
+        // `+142 −38` chip, and `12 files` is the same fact.
+        let hint = Self.showChangesHint(shortcut: model.changesShortcut)
         if !diff.isEmpty {
             let tooltip = "\(model.diffAdded ?? 0) inserted, \(model.diffRemoved ?? 0) deleted since HEAD"
-            out.append(StatusItem(.runs(diff), tooltip: tooltip))
+            out.append(StatusItem(.runs(diff), tooltip: tooltip + "\n" + hint, action: .showChanges))
         }
 
         if let files = model.diffFiles {
@@ -293,7 +311,8 @@ public final class StatusBarView: NSView {
                 .runs([
                     StatusRun(text: "\(files) file\(files == 1 ? "" : "s")", color: theme.statusBarText)
                 ]),
-                tooltip: "\(files) file\(files == 1 ? "" : "s") changed in the working tree"))
+                tooltip: "\(files) file\(files == 1 ? "" : "s") changed in the working tree\n" + hint,
+                action: .showChanges))
         }
 
         // Ahead/behind has three states, and the middle one is the reason this is not just two
@@ -611,6 +630,14 @@ public final class StatusBarView: NSView {
         let hairline = 1 / max(window?.backingScaleFactor ?? 2, 1)
         NSRect(x: 0, y: bounds.maxY - hairline, width: bounds.width, height: hairline).fill()
 
+        if let hoveredFrame {
+            let fg = theme.foreground
+            RGB(r: fg.r, g: fg.g, b: fg.b, a: 0.08).nsColor.setFill()
+            NSBezierPath(
+                roundedRect: Self.hoverRect(for: hoveredFrame, in: bounds), xRadius: 4, yRadius: 4
+            ).fill()
+        }
+
         for placed in placement() {
             if let separatorX = placed.separatorX {
                 let text = placed.separatorIsDot ? Self.separator : " "
@@ -641,9 +668,11 @@ public final class StatusBarView: NSView {
         invalidatePlacement()
     }
 
-    /// Drops the cached layout and re-registers everything derived from it.
+    /// Drops the cached layout and re-registers everything derived from it. The hover goes
+    /// with it: its frame was the old layout's, and the next `mouseMoved` finds the new one.
     private func invalidatePlacement() {
         cachedPlacement = nil
+        hoveredFrame = nil
         refreshInteraction()
     }
 
@@ -657,25 +686,85 @@ public final class StatusBarView: NSView {
 
     public override func resetCursorRects() {
         super.resetCursorRects()
-        for placed in placement() where placed.item.url != nil {
+        for placed in placement() where placed.item.action != nil {
             addCursorRect(placed.frame, cursor: .pointingHand)
         }
     }
 
     /// A click on a port badge opens `http://localhost:<port>`; a click on the PR badge opens the
-    /// pull request. Everything else falls through, so a click on the strip does not steal focus
-    /// from the terminal.
+    /// pull request; a click on a diff chip opens the changes viewer. Everything else falls
+    /// through, so a click on the strip does not steal focus from the terminal.
     public override func mouseUp(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        guard let url = item(at: point)?.url else {
+        guard let action = item(at: point)?.action else {
             super.mouseUp(with: event)
             return
         }
-        openURL(url)
+        switch action {
+        case .open(let url): openURL(url)
+        case .showChanges: onShowChanges?()
+        }
     }
 
     /// Injected so the click test does not launch a browser.
     var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
+    /// The diff chips were clicked. The window controller opens (or closes) the viewer.
+    public var onShowChanges: (() -> Void)?
+
+    /// The second tooltip line on both diff chips: `Click or ⇧⌘G to browse the changes`.
+    static func showChangesHint(shortcut: String?) -> String {
+        let chord = shortcut.flatMap { $0.isEmpty ? nil : " or \($0)" } ?? ""
+        return "Click\(chord) to browse the changes"
+    }
+
+    // MARK: Hover
+
+    /// The clickable item under the pointer, if any. Drawn with a wash behind it so the strip
+    /// says "this is a button" before the click — the cursor alone is easy to miss on a 36 pt
+    /// band of text.
+    private var hoveredFrame: NSRect? {
+        didSet { if hoveredFrame != oldValue { needsDisplay = true } }
+    }
+    private var hoverArea: NSTrackingArea?
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverArea { removeTrackingArea(hoverArea) }
+        let area = NSTrackingArea(
+            rect: bounds, options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp, .inVisibleRect],
+            owner: self, userInfo: nil)
+        addTrackingArea(area)
+        hoverArea = area
+    }
+
+    public override func mouseMoved(with event: NSEvent) {
+        hoveredFrame = hoverFrame(at: convert(event.locationInWindow, from: nil))
+    }
+
+    public override func mouseExited(with event: NSEvent) {
+        hoveredFrame = nil
+    }
+
+    /// The frame of the actionable item under `point`, in view coordinates. Inert text hovers
+    /// nothing.
+    func hoverFrame(at point: NSPoint) -> NSRect? {
+        placement().first { $0.frame.contains(point) && $0.item.action != nil }?.frame
+    }
+
+    /// The wash drawn behind a hovered item: 4 pt of air either side, the pill's height plus
+    /// 6, in the foreground at 8 % so it reads on both presets.
+    static func hoverRect(for frame: NSRect, in bounds: NSRect) -> NSRect {
+        let height = pillHeight + 6
+        return NSRect(
+            x: frame.minX - 4, y: ((bounds.height - height) / 2).rounded(),
+            width: frame.width + 8, height: height)
+    }
+
+    /// The item currently hovered, for tests.
+    var hoveredItemForTesting: StatusItem? {
+        guard let hoveredFrame else { return nil }
+        return placement().first { $0.frame == hoveredFrame }?.item
+    }
 
     private func width(of segment: StatusSegment) -> CGFloat {
         switch segment {

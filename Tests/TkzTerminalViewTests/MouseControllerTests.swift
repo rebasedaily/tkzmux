@@ -709,6 +709,36 @@ struct MouseControllerRoutingTests {
         #expect(rig.view.trackingAreas.contains(area) == false)
     }
 
+    @Test("a hover under a view drawn over the terminal is not reported")
+    func coveredHoverIsNotReported() throws {
+        // The changes viewer (TKZ-58) sits over the terminal; the terminal's tracking area keeps
+        // firing by geometry, and under any-event tracking each hover would otherwise go down
+        // the pty as a `35;x;yM` motion report.
+        guard let rig = try makeRig() else { return }
+        _ = NSApplication.shared
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
+            styleMask: [.borderless], backing: .buffered, defer: true)
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        window.contentView = content
+        content.addSubview(rig.view)
+        let cover = NSView(frame: content.bounds)
+        content.addSubview(cover)  // after the terminal: above it
+        defer { window.orderOut(nil) }
+        rig.terminal.write("\u{1b}[?1003h\u{1b}[?1006h")  // any-event tracking, SGR format
+        #expect(rig.terminal.isMouseTrackingEnabled)
+
+        let at = rig.point(column: 2, row: 2)
+        #expect(rig.view.isPointerTarget(Self.event(.mouseMoved, at: at)) == false)
+        #expect(rig.controller.handle(Self.event(.mouseMoved, at: at), in: rig.view) == false)
+        #expect(rig.sent.all.isEmpty, "covered: nothing reported")
+
+        cover.removeFromSuperview()
+        #expect(rig.view.isPointerTarget(Self.event(.mouseMoved, at: at)))
+        #expect(rig.controller.handle(Self.event(.mouseMoved, at: at), in: rig.view))
+        #expect(rig.sent.text.hasPrefix("\u{1b}[<35;"), "uncovered: a motion report \(rig.sent.text.debugDescription)")
+    }
+
     @Test("geometry is pushed once, and again when the view resizes")
     func geometrySync() throws {
         guard let rig = try makeRig() else { return }

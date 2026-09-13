@@ -459,6 +459,14 @@ public final class MouseController: NSObject, TerminalMouseHandling {
 
     private func mouseMovedInside(_ event: NSEvent, in view: TerminalMetalView) -> Bool {
         guard let terminal = terminalForView(view) else { return false }
+        // The tracking area delivers hovers by geometry alone: a view drawn *over* the terminal
+        // (the changes viewer, TKZ-58) does not stop them. A hover the pointer cannot actually
+        // reach must not be reported — under any-event tracking (1003) every one of them would
+        // go down the pty as a motion report while the user is looking at something else.
+        guard view.isPointerTarget(event) else {
+            if hoveredLink != nil { clearLinkOverlay() }
+            return false
+        }
         let mods = terminalModifiers(from: event.modifierFlags)
         let position = surfacePoint(of: event, in: view)
 

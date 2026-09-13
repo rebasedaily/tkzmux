@@ -259,6 +259,7 @@ public enum MainMenu {
         addCommand(.jumpToNeedsYou, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.copyLastMessage, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.showFirstPrompt, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
+        addCommand(.showChanges, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         menu.addItem(.separator())
         addCommand(.previousSession, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.nextSession, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
