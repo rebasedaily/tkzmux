@@ -67,7 +67,7 @@ public enum SidebarRowAdapter {
             isSelected: state.selection == session.id,
             groupColor: state.groups[session.groupID]?.color,
             memoryBadge: memoryBadge(for: session),
-            spendBadge: spendBadge(for: session)
+            spendBadge: spendBadge(for: session, in: state)
         )
     }
 
@@ -98,15 +98,20 @@ public enum SidebarRowAdapter {
         String(format: "%.1f GB", Double(bytes) / (1024 * 1024 * 1024))
     }
 
-    /// This session's estimated spend so far, or `nil` to hide the badge — visibility is entirely
-    /// data-driven, like every other sidebar badge (``memoryBadge(for:)``, the `WT` badge, the
-    /// account chip): none of them are behind a user preference, so this one is not either.
+    /// This session's estimated spend so far, or `nil` to hide the badge. Unlike the other sidebar
+    /// badges (``memoryBadge(for:)``, the `WT` badge, the account chip), this one *is* behind a
+    /// user preference — the global `AppState.showSessionSpend` switch and the session's own
+    /// `Session.spendTrackingDisabled` opt-out (design: enable/disable, all sessions and per
+    /// session) — checked first, so a disabled session or a disabled feature shows nothing even
+    /// while `live.usage` still holds a stale figure from before it was turned off.
     ///
     /// Hidden below one cent: a `$0.00` badge would read as "this cost nothing", the same
     /// misleading claim `totalCostUSD == nil` (nothing parsed yet, or every model used is unpriced)
     /// already avoids by having no figure at all.
-    static func spendBadge(for session: Session) -> String? {
-        guard let cost = session.live?.usage?.totalCostUSD, cost >= 0.005 else { return nil }
+    static func spendBadge(for session: Session, in state: AppState) -> String? {
+        guard state.showSessionSpend, session.spendTrackingDisabled != true,
+              let cost = session.live?.usage?.totalCostUSD, cost >= 0.005
+        else { return nil }
         return StatusBarModel.formatUSD(cost)
     }
 

@@ -353,6 +353,74 @@ import Testing
         #expect(change.sessions.isEmpty)
     }
 
+    @Test func showSessionSpendIsASessionsChangeForEveryRowNotChrome() {
+        var state = AppState()
+        let group = state.addGroup(name: "G", repoRoot: "/repo")
+        let a = state.createSession(groupID: group.id, cwd: "/repo")
+        let b = state.createSession(groupID: group.id, cwd: "/repo")
+        let before = state
+        state.setShowSessionSpend(false)
+        let change = ChangeSet.diff(from: before, to: state)
+        #expect(change.chrome == false)
+        #expect(change.structure == false)
+        #expect(change.sessions == [a.id, b.id])
+    }
+
+    @Test func disablingShowSessionSpendDoesNotFabricateLiveStateForADormantSession() {
+        // A restored-but-never-shown row has `live == nil` (design.md → *Session flows*): flipping
+        // the global switch off must not wake one into existence just to clear a figure it never
+        // had. `updateLive` would otherwise do exactly that.
+        var state = AppState()
+        let group = state.addGroup(name: "G", repoRoot: "/repo")
+        let dormant = state.createSession(groupID: group.id, cwd: "/repo")
+        #expect(state.sessions[dormant.id]?.live == nil)
+
+        state.setShowSessionSpend(false)
+        #expect(state.sessions[dormant.id]?.live == nil)
+    }
+
+    @Test func disablingShowSessionSpendClearsEverySessionsLiveUsage() {
+        var state = AppState()
+        let group = state.addGroup(name: "G", repoRoot: "/repo")
+        let created = state.createSession(groupID: group.id, cwd: "/repo")
+        state.updateLive(created.id) {
+            $0.usage = SessionUsage(perModel: [], totalCostUSD: 1.23, lastUpdatedAt: Date())
+        }
+        #expect(state.sessions[created.id]?.live?.usage != nil)
+
+        state.setShowSessionSpend(false)
+        #expect(state.sessions[created.id]?.live?.usage == nil)
+    }
+
+    @Test func setSpendTrackingDisabledOnADormantSessionSetsTheFlagWithoutFabricatingLiveState() {
+        var state = AppState()
+        let group = state.addGroup(name: "G", repoRoot: "/repo")
+        let dormant = state.createSession(groupID: group.id, cwd: "/repo")
+        #expect(state.sessions[dormant.id]?.live == nil)
+
+        state.setSpendTrackingDisabled(dormant.id, true)
+        #expect(state.sessions[dormant.id]?.spendTrackingDisabled == true)
+        #expect(state.sessions[dormant.id]?.live == nil)
+    }
+
+    @Test func setSpendTrackingDisabledTogglesOneSessionAndClearsItsUsage() {
+        var state = AppState()
+        let group = state.addGroup(name: "G", repoRoot: "/repo")
+        let session = state.createSession(groupID: group.id, cwd: "/repo")
+        state.updateLive(session.id) {
+            $0.usage = SessionUsage(perModel: [], totalCostUSD: 1.23, lastUpdatedAt: Date())
+        }
+
+        state.setSpendTrackingDisabled(session.id, true)
+        #expect(state.sessions[session.id]?.spendTrackingDisabled == true)
+        #expect(state.sessions[session.id]?.live?.usage == nil)
+
+        // Re-enabling clears the flag back to `nil`, not `false` — `nil` is the one value a file
+        // written before this field existed can ever decode to.
+        state.setSpendTrackingDisabled(session.id, false)
+        #expect(state.sessions[session.id]?.spendTrackingDisabled == nil)
+    }
+
     @Test func togglingTheThemeFlipsBetweenDarkAndLight() {
         var state = AppState()
         #expect(Theme.preset(state.themePreset).isDark)

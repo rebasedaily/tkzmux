@@ -247,7 +247,7 @@ struct MainMenuTests {
                        .renameSession, .copyLastMessage, .showFirstPrompt, .removeShellIntegration,
                        .openFolder,
                        .statusLineIntegration, .resumeSession, .resumeAllInGroup,
-                       .toggleAutoResume] {
+                       .toggleAutoResume, .toggleSessionSpend] {
             #expect(dispatcher.canPerform(action), "\(action.rawValue) should be wired")
         }
         for n in 1...9 {
@@ -259,13 +259,21 @@ struct MainMenuTests {
             #expect(dispatcher.canPerform(action) == false, "\(action.rawValue) is not implemented yet")
             #expect(MainMenu.commandItems(in: harness.controller.buildMainMenu())[action] == nil)
         }
-        // The auto-resume toggle is the one checkmark item; it follows the store.
+        // The auto-resume toggle is a checkmark item that follows the store, off by default.
         #expect(dispatcher.checkmark(for: .toggleAutoResume) == false)
         harness.mutate { $0.setAutoResumeOnLaunch(true) }
         #expect(dispatcher.checkmark(for: .toggleAutoResume) == true)
         let item = MainMenu.commandItems(in: MainMenu.build(dispatcher: dispatcher))[.toggleAutoResume]!
         _ = dispatcher.validateMenuItem(item)
         #expect(item.state == .on)
+
+        // The spend toggle is the other checkmark item — on by default, unlike auto-resume.
+        #expect(dispatcher.checkmark(for: .toggleSessionSpend) == true)
+        harness.mutate { $0.setShowSessionSpend(false) }
+        #expect(dispatcher.checkmark(for: .toggleSessionSpend) == false)
+        let spendItem = MainMenu.commandItems(in: MainMenu.build(dispatcher: dispatcher))[.toggleSessionSpend]!
+        _ = dispatcher.validateMenuItem(spendItem)
+        #expect(spendItem.state == .off)
     }
 
     @Test("⌘B through the menu dispatcher toggles the real sidebar")

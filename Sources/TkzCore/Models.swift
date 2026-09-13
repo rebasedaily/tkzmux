@@ -173,6 +173,11 @@ public struct Session: Hashable, Sendable, Identifiable {
     public var claudeSessionId: String?
     public var createdAt: Date
     public var lastActiveAt: Date
+    /// This session's own opt-out of the token usage/spend feature (design: enable/disable, per
+    /// session), on top of `AppState.showSessionSpend`'s global switch. `nil` = tracked, the
+    /// default; `true` = this session opted out. Never `false` — see
+    /// `AppState.setSpendTrackingDisabled(_:_:)`, the only writer.
+    public var spendTrackingDisabled: Bool?
 
     /// The session's tabs, in strip order. Never empty: `closePane`/`closeTab` refuse to empty a
     /// row, and `normalizeLayout` re-seeds a file that says otherwise.
@@ -196,6 +201,7 @@ public struct Session: Hashable, Sendable, Identifiable {
         claudeSessionId: String? = nil,
         createdAt: Date = Date(),
         lastActiveAt: Date = Date(),
+        spendTrackingDisabled: Bool? = nil,
         tabs: [Tab]? = nil,
         activeTab: TabID? = nil,
         live: LiveSessionState? = nil
@@ -212,6 +218,7 @@ public struct Session: Hashable, Sendable, Identifiable {
         self.claudeSessionId = claudeSessionId
         self.createdAt = createdAt
         self.lastActiveAt = lastActiveAt
+        self.spendTrackingDisabled = spendTrackingDisabled
         // A default argument cannot reference another parameter, so the single-leaf seed is built
         // here. Its terminal and tab ids are the session's own uuid — the same invariant
         // `Migrations.liftV1ToV2` gives every row it lifts, which is what lets `restoreAll` map a
@@ -392,7 +399,7 @@ extension Session: Codable {
     /// `live` is deliberately absent: process state is rebuilt at launch, never persisted.
     private enum CodingKeys: String, CodingKey {
         case id, groupID, order, title, cwd, repoRoot, worktreePath, isWorktree
-        case accountKey, claudeSessionId, createdAt, lastActiveAt
+        case accountKey, claudeSessionId, createdAt, lastActiveAt, spendTrackingDisabled
         case tabs, activeTab
     }
 }

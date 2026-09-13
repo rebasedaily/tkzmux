@@ -65,6 +65,10 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     public static let resumeAllInGroup = ShortcutAction("resumeAllInGroup")
     /// No key: the "auto-resume on launch" preference, shown with a checkmark (M5.2).
     public static let toggleAutoResume = ShortcutAction("toggleAutoResume")
+    /// No key: the token usage/spend feature's global on/off, shown with a checkmark (design:
+    /// enable/disable, all sessions). The per-session opt-out lives on the row's context menu
+    /// instead — it names one session, which an app-menu checkbox cannot.
+    public static let toggleSessionSpend = ShortcutAction("toggleSessionSpend")
     /// No key: flip between the dark preset and its light twin — the ☾/☀ segment's command form.
     /// No checkmark: this is a flip between two named appearances, not a boolean that is on or off.
     public static let toggleTheme = ShortcutAction("toggleTheme")
@@ -172,7 +176,7 @@ public enum ShortcutsTable {
             .closeTerminal, .closeSession, .jumpToNeedsYou, .notifications, .settings,
             .openFolder, .reloadConfig, .nextSession, .previousSession, .copyLastMessage,
             .showFirstPrompt, .removeShellIntegration, .statusLineIntegration, .resumeSession, .resumeAllInGroup,
-            .toggleAutoResume, .toggleTheme,
+            .toggleAutoResume, .toggleSessionSpend, .toggleTheme,
             .newTerminal, .splitVertically, .splitHorizontally,
             .focusPaneLeft, .focusPaneRight, .focusPaneUp, .focusPaneDown,
             .equalizeSplits, .zoomPane, .previousTab, .nextTab,
@@ -239,6 +243,7 @@ public enum ShortcutsTable {
         case .resumeSession: "Resume Session"
         case .resumeAllInGroup: "Resume All in Group"
         case .toggleAutoResume: "Auto-resume Sessions on Launch"
+        case .toggleSessionSpend: "Show Token Usage & Spend"
         // Static on purpose: `MainMenuTests` asserts the menu item's title equals this, so a
         // state-dependent "Switch to Light…" would fail on every toggle.
         case .toggleTheme: "Toggle Light / Dark Theme"

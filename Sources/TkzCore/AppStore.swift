@@ -27,6 +27,8 @@ import Foundation
 /// | usage / accounts | `usage` |
 /// | sidebar visibility, sidebar width, window frame, shortcuts | `chrome` |
 /// | the active theme preset | `theme` — **never** `chrome` |
+/// | the global spend-visibility toggle | `sessions` = every session id — **never** `chrome`: it changes what every row's badge and the status bar show, which is what `sessions` is for, and `chrome` is not observed by either |
+/// | a session's own spend-tracking opt-out | `sessions = [id]`, via the ordinary value-inequality rule — no special case needed |
 ///
 /// `structure` therefore means exactly "the outline view's rows or their parents moved" — the only
 /// case that needs `insert/remove/moveItem` or a full `reloadData`. Collapsing a group is *not*
@@ -154,6 +156,12 @@ public struct ChangeSet: Hashable, Sendable {
             change.groups.insert(id)
             change.structure = true
         }
+
+        // A global visibility flip touches every row's derived badge/status-bar figure, but not
+        // the row's own value — `SidebarRowAdapter`/`statusModel` read this flag directly rather
+        // than through `Session`, so it needs its own rule instead of falling out of the loop
+        // above. `sessions`, not `chrome`: `chrome` is not observed by the rows or the status bar.
+        if old.showSessionSpend != new.showSessionSpend { change.sessions.formUnion(new.sessions.keys) }
 
         if old.selection != new.selection { change.selection = true }
         if old.usage != new.usage || old.accounts != new.accounts { change.usage = true }

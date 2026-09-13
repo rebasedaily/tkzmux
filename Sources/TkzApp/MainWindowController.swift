@@ -2143,8 +2143,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         model.sessionUsage = Self.quota(usage?.fiveHour, now: now)
         model.weeklyUsage = Self.quota(usage?.sevenDay, now: now)
         model.usageTooltip = usageTooltip(for: state)
-        model.spendUSD = session.live?.usage?.totalCostUSD
-        model.spendTooltip = Self.spendTooltip(for: session.live?.usage)
+        // Same two gates `SidebarRowAdapter.spendBadge(for:in:)` checks (design: enable/disable,
+        // all sessions and per session) — checked here too rather than shared, since this is a
+        // `Session`+flag combination and that one is a `Session`+`AppState` combination.
+        let spendEnabled = state.showSessionSpend && session.spendTrackingDisabled != true
+        model.spendUSD = spendEnabled ? session.live?.usage?.totalCostUSD : nil
+        model.spendTooltip = spendEnabled ? Self.spendTooltip(for: session.live?.usage) : nil
         return model
     }
 
@@ -2468,6 +2472,14 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         store.update { $0.setAutoResumeOnLaunch(!$0.autoResumeOnLaunch) }
     }
 
+    /// The global spend-tracking switch (design: enable/disable, all sessions). Turning it back on
+    /// re-reads every session's transcript right away, rather than leaving every badge and the
+    /// status bar blank until each session's next hook fires.
+    func toggleSessionSpend() {
+        store.update { $0.setShowSessionSpend(!$0.showSessionSpend) }
+        if store.state.showSessionSpend { claude?.refreshAllUsage() }
+    }
+
     // MARK: - Theme
 
     /// Flips to the current preset's light/dark counterpart. The store is the only writer; the
@@ -2628,6 +2640,16 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         let remove = contextItem("Remove", action: #selector(contextRemove(_:)), id: id.rawValue)
         remove.identifier = ContextItemID.remove
         menu.addItem(remove)
+
+        // Per-session opt-out of token usage/spend (design: enable/disable, per session), on top
+        // of the app menu's global switch. Offered regardless of the global switch's state: a
+        // session marked "hidden" here stays hidden if the global switch later turns back on.
+        let spendHidden = session.spendTrackingDisabled == true
+        let spendToggle = contextItem(
+            spendHidden ? "Show Spend for This Session" : "Hide Spend for This Session",
+            action: #selector(contextToggleSpendTracking(_:)), id: id.rawValue)
+        spendToggle.identifier = ContextItemID.toggleSpendTracking
+        menu.addItem(spendToggle)
 
         // Only offered when there is actually something to kill. Nothing in the system reclaims a
         // stalled process's memory — jetsam will not kill it — so when a build or test under this
@@ -2847,6 +2869,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         public static let rename = NSUserInterfaceItemIdentifier("tkzmux.context.rename")
         public static let remove = NSUserInterfaceItemIdentifier("tkzmux.context.remove")
         public static let killProcessTree = NSUserInterfaceItemIdentifier("tkzmux.context.killProcessTree")
+        public static let toggleSpendTracking = NSUserInterfaceItemIdentifier("tkzmux.context.toggleSpendTracking")
         public static let newSession = NSUserInterfaceItemIdentifier("tkzmux.context.newSession")
         public static let resumeAll = NSUserInterfaceItemIdentifier("tkzmux.context.resumeAll")
         public static let groupRepo = NSUserInterfaceItemIdentifier("tkzmux.context.groupRepo")
@@ -2898,6 +2921,14 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     @objc private func contextRemove(_ sender: Any?) {
         guard let id = sessionID(from: sender) else { return }
         removeSession(id)
+    }
+
+    @objc private func contextToggleSpendTracking(_ sender: Any?) {
+        guard let id = sessionID(from: sender) else { return }
+        let hidden = store.state.sessions[id]?.spendTrackingDisabled == true
+        store.update { $0.setSpendTrackingDisabled(id, !hidden) }
+        // Turning it back on for this one session: no need to re-scan every session, only this one.
+        if hidden { claude?.refreshUsageNow(for: id) }
     }
 
     /// Overrides the kill confirmation: return true to proceed. Tests set it — an alert needs a
@@ -3220,7 +3251,9 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         dispatcher.setHandler(.resumeAllInGroup) { [weak self] in self?.resumeAll() }
         dispatcher.setHandler(.toggleAutoResume) { [weak self] in self?.toggleAutoResume() }
         dispatcher.setHandler(.toggleTheme) { [weak self] in self?.toggleTheme() }
+        dispatcher.setHandler(.toggleSessionSpend) { [weak self] in self?.toggleSessionSpend() }
         dispatcher.setCheckmark(.toggleAutoResume) { [weak self] in self?.store.state.autoResumeOnLaunch ?? false }
+        dispatcher.setCheckmark(.toggleSessionSpend) { [weak self] in self?.store.state.showSessionSpend ?? true }
         dispatcher.setHandler(.nextSession) { [weak self] in
             self?.store.update { $0.selectAdjacentSession(offset: 1) }
         }

@@ -1,8 +1,9 @@
 // SessionSpendBadgeTests — the sidebar badge for a session's estimated spend so far.
 //
-// Deliberately data-driven, like every other sidebar badge (the memory badge, `WT`, the account
-// chip): none of them are behind a user preference, and this one follows suit rather than
-// introducing the sidebar's first per-row visibility toggle.
+// Unlike the other sidebar badges (the memory badge, `WT`, the account chip), this one is gated by
+// a user preference on two levels (design: enable/disable, all sessions and per session):
+// `AppState.showSessionSpend` (global) and `Session.spendTrackingDisabled` (this one session's own
+// opt-out). Both default to "tracked" and either one hides the badge.
 
 import Foundation
 import Testing
@@ -13,7 +14,7 @@ import TkzCore
 @Suite("Session spend badge")
 struct SessionSpendBadgeTests {
 
-    private static func session(totalCostUSD: Double?) -> Session {
+    private static func session(totalCostUSD: Double?, spendTrackingDisabled: Bool? = nil) -> Session {
         var state = AppState()
         let group = state.addGroup(name: "G", repoRoot: "/tmp")
         var session = state.createSession(groupID: group.id, cwd: "/tmp")
@@ -25,27 +26,41 @@ struct SessionSpendBadgeTests {
                 lastUpdatedAt: Date())
         }
         session.live = live
+        session.spendTrackingDisabled = spendTrackingDisabled
         return session
     }
 
     @Test("no usage yet means no badge")
     func noUsageHasNoBadge() {
-        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: nil)) == nil)
+        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: nil), in: AppState()) == nil)
         var bare = Self.session(totalCostUSD: nil)
         bare.live = nil
-        #expect(SidebarRowAdapter.spendBadge(for: bare) == nil)
+        #expect(SidebarRowAdapter.spendBadge(for: bare, in: AppState()) == nil)
     }
 
     @Test("below one cent shows no badge, so a $0.00 pill never claims nothing was spent")
     func belowOneCentHasNoBadge() {
-        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 0.004)) == nil)
+        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 0.004), in: AppState()) == nil)
     }
 
     @Test("a real spend is formatted the same way the status bar formats it")
     func realSpendIsFormatted() {
-        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 1.23)) == "$1.23")
+        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 1.23), in: AppState()) == "$1.23")
         // `.rounded()` is away-from-zero, so exactly half a cent clears the one-cent floor.
-        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 0.005)) == "$0.01")
+        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 0.005), in: AppState()) == "$0.01")
+    }
+
+    @Test("the global switch off hides a real spend")
+    func globalSwitchOffHidesBadge() {
+        var state = AppState()
+        state.showSessionSpend = false
+        #expect(SidebarRowAdapter.spendBadge(for: Self.session(totalCostUSD: 1.23), in: state) == nil)
+    }
+
+    @Test("a session's own opt-out hides it even while the global switch is on")
+    func perSessionOptOutHidesBadge() {
+        let session = Self.session(totalCostUSD: 1.23, spendTrackingDisabled: true)
+        #expect(SidebarRowAdapter.spendBadge(for: session, in: AppState()) == nil)
     }
 
     @Test("the badge reaches the row model")
