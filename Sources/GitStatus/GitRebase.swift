@@ -38,16 +38,22 @@ public enum GitRebase {
         /// The sheet already fetched a moment ago: go straight to the rebase.
         public var skipFetch: Bool
         public var gitPath: String
+        /// The branch this request was prepared for, captured on the main actor when the request
+        /// was built. `run` re-checks `HEAD` against this immediately before it writes anything, so
+        /// a branch switched (or a detach) while the sheet was fetching, or while this request sat
+        /// in the rebase queue, cannot rebase an unintended branch.
+        public var expectedBranch: String?
 
         public init(
             toplevel: String, gitDir: String, base: BaseBranch, skipFetch: Bool = false,
-            gitPath: String = GitProcess.gitPath
+            gitPath: String = GitProcess.gitPath, expectedBranch: String? = nil
         ) {
             self.toplevel = toplevel
             self.gitDir = gitDir
             self.base = base
             self.skipFetch = skipFetch
             self.gitPath = gitPath
+            self.expectedBranch = expectedBranch
         }
     }
 
@@ -150,6 +156,13 @@ public enum GitRebase {
         // files are left alone (and survive a rebase untouched).
         let dirty = hasTrackedChanges(request)
 
+        // Re-checked as close to the write as this call can get it: `counts` above already ran
+        // one git launch, and a `cd`/checkout in the worktree's own terminal between the sheet
+        // opening and this line landing must not rebase whatever branch is now checked out.
+        if let expected = request.expectedBranch, currentBranch(request) != expected {
+            return .failed("HEAD moved to a different branch since the rebase was requested")
+        }
+
         let output: GitProcess.Output
         do {
             output = try GitProcess.run(
@@ -171,10 +184,10 @@ public enum GitRebase {
         if output.standardError.contains(autostashConflictMarker)
             || output.standardOutput.contains(autostashConflictMarker)
         {
-            return .rebasedStashConflict(commits: before.ahead)
+            return .rebasedStashConflict(commits: replayedCommits(request, before: before.ahead))
         }
         if output.succeeded {
-            return .rebased(commits: before.ahead, stashReapplied: dirty)
+            return .rebased(commits: replayedCommits(request, before: before.ahead), stashReapplied: dirty)
         }
 
         let conflicted = conflictedFileCount(request)
@@ -200,6 +213,28 @@ public enum GitRebase {
             parts += path.split(separator: ":").map(String.init).filter { !prefixes.contains($0) }
         }
         return ["PATH": parts.joined(separator: ":")]
+    }
+
+    /// The short name of the branch `HEAD` currently points at, or `nil` on a detached `HEAD` or
+    /// when git could not be launched.
+    private static func currentBranch(_ request: Request) -> String? {
+        guard
+            let output = try? GitProcess.git(
+                ["symbolic-ref", "-q", "--short", "HEAD"], in: request.toplevel, gitPath: request.gitPath),
+            output.succeeded
+        else { return nil }
+        return output.trimmedOutput
+    }
+
+    /// The commits actually replayed onto the base. `before` (`rev-list` taken before the rebase)
+    /// overstates this when the branch has merge commits: the default (non `--rebase-merges`)
+    /// `git rebase` drops merge commits and replays the underlying patches individually, so the
+    /// number of commits ahead of the base *before* rebasing is not the number of commits *on*
+    /// it afterwards. `<base>...HEAD` measured again once the rebase has landed HEAD on the base
+    /// reports exactly what is now on top of it. Falls back to `before` if that second measurement
+    /// fails — the base ref moved out from under a fast-finishing rebase, say.
+    private static func replayedCommits(_ request: Request, before: Int) -> Int {
+        counts(request)?.ahead ?? before
     }
 
     private static func hasTrackedChanges(_ request: Request) -> Bool {

@@ -43,12 +43,14 @@ public final class RebaseSheetController: NSObject, NSWindowDelegate {
     /// Bumped on every present/dismiss so a fetch that lands after the sheet moved on is dropped.
     private var generation: UInt64 = 0
     private let prepare: Prepare
-    private let queue = DispatchQueue(label: "se.tkz.tkzmux.RebaseSheet.fetch", qos: .userInitiated)
+    /// Its own queue until `useFetchQueue` hands it `GitIntegration.rebaseQueue`, so a fetch this
+    /// sheet starts before the coordinator exists (a test harness) still has somewhere to run.
+    private var queue = DispatchQueue(label: "se.tkz.tkzmux.RebaseSheet.fetch", qos: .userInitiated)
 
     public init(theme: Theme = .default) {
         self.theme = theme
         self.prepare = { request in
-            if let failure = GitRebase.fetch(request) { return (failure, nil) }
+            if !request.skipFetch, let failure = GitRebase.fetch(request) { return (failure, nil) }
             return (nil, GitRebase.behindCount(request))
         }
         super.init()
@@ -58,6 +60,14 @@ public final class RebaseSheetController: NSObject, NSWindowDelegate {
         self.theme = theme
         self.prepare = prepare
         super.init()
+    }
+
+    /// Serializes this sheet's own opening fetch behind every fetch `GitIntegration` makes — a
+    /// running rebase's, or the opt-in origin check's — so opening the sheet while one of those is
+    /// mid-fetch on the same repo queues behind it rather than launching a second `git fetch` that
+    /// can fail on the repository's lock.
+    func useFetchQueue(_ queue: DispatchQueue) {
+        self.queue = queue
     }
 
     // MARK: Presentation

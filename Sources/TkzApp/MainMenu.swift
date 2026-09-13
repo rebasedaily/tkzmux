@@ -90,10 +90,13 @@ public final class MenuDispatcher: NSObject, NSMenuItemValidation {
     /// palette lists as command rows (`CommandPaletteController.performableCommands`).
     public var performableActions: Set<ShortcutAction> { Set(handlers.keys) }
 
-    /// Runs the action, if it has a handler. Returns whether anything ran.
+    /// Runs the action, if it has a handler and `isEnabled` agrees. Returns whether anything ran.
+    /// Checking `isEnabled` here, not just in `validateMenuItem`, is what makes `setEnabled`'s rule
+    /// hold everywhere the action can fire — the palette and the cheat sheet call `perform`
+    /// directly, without a menu item's validation ever running.
     @discardableResult
     public func perform(_ action: ShortcutAction) -> Bool {
-        guard let handler = handlers[action] else { return false }
+        guard let handler = handlers[action], isEnabled(action) else { return false }
         handler()
         return true
     }

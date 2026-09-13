@@ -351,7 +351,11 @@ public final class StatusBarView: NSView {
         // (`⤿ 7 behind main`) rather than leaving that to a tooltip that takes a second to show;
         // the tooltip only adds the action and the freshness caveat. While a rebase runs the
         // same pill says so, dimmed and inert, so a second click cannot start a second one.
-        if let base = model.baseBranch, let behind = model.behindBase, behind > 0 || model.isRebasing {
+        // `model.isRebasing` bypasses the count requirement: a rebase can still be running once
+        // the fetch that follows it has invalidated `behindBase` (briefly `nil` mid-refresh), and
+        // the dimmed/inert pill is the one signal that a second click cannot start a second rebase.
+        // The count is required only for the non-rebasing label, which has a number to show.
+        if let base = model.baseBranch, model.isRebasing || (model.behindBase ?? 0) > 0 {
             let label = Self.baseLabel(base)
             if model.isRebasing {
                 out.append(StatusItem(
@@ -359,7 +363,7 @@ public final class StatusBarView: NSView {
                         text: "\u{293F} rebasing onto \(label)\u{2026}", foreground: theme.foregroundDim,
                         background: .clear, border: theme.foregroundDim, tracking: 0),
                     tooltip: "Rebasing onto \(base)\u{2026}"))
-            } else {
+            } else if let behind = model.behindBase {
                 out.append(StatusItem(
                     .pill(
                         text: Self.baseChipText(base: base, behind: behind), foreground: theme.rebaseText,

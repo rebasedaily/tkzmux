@@ -36,7 +36,8 @@ public struct BaseBranch: Hashable, Sendable {
     public static func resolve(in directory: String, gitPath: String = GitProcess.gitPath) -> BaseBranch? {
         if let output = try? GitProcess.git(
             ["symbolic-ref", "-q", "refs/remotes/origin/HEAD"], in: directory, gitPath: gitPath),
-            output.succeeded, let base = parseSymbolicRef(output.trimmedOutput)
+            output.succeeded, let base = parseSymbolicRef(output.trimmedOutput),
+            exists(base, in: directory, gitPath: gitPath)
         {
             return base
         }
@@ -46,6 +47,17 @@ public struct BaseBranch: Hashable, Sendable {
             output.succeeded
         else { return nil }
         return pick(from: output.standardOutput.split(separator: "\n").map(String.init))
+    }
+
+    /// Whether `base`'s ref actually resolves to a commit. `symbolic-ref` answers with the target
+    /// of `refs/remotes/origin/HEAD` even when that target ref was deleted (a dangling symref after
+    /// the remote's default branch was renamed or removed) — without this check that dangling
+    /// target would short-circuit the `for-each-ref` fallback chain forever.
+    static func exists(_ base: BaseBranch, in directory: String, gitPath: String) -> Bool {
+        guard let remote = base.remote else { return true }
+        return (try? GitProcess.git(
+            ["rev-parse", "-q", "--verify", "refs/remotes/\(remote)/\(base.name)"],
+            in: directory, gitPath: gitPath))?.succeeded ?? false
     }
 
     /// The fallback refs, in priority order. `for-each-ref` prints whichever exist sorted by

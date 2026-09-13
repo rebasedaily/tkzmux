@@ -62,7 +62,8 @@ struct RebaseSheetModel: Equatable, Sendable {
         case .fetchFailed: return "Fix the fetch first"
         case .ready:
             if claudeWorking { return "Wait for Claude to be idle \u{2014} it may be editing files" }
-            if (behind ?? 0) == 0 { return "Nothing to rebase" }
+            guard let behind else { return "Could not count the commits on \(baseRef)" }
+            if behind == 0 { return "Nothing to rebase" }
             return nil
         }
     }

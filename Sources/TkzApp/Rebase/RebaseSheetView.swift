@@ -97,8 +97,10 @@ final class RebaseSheetView: NSView {
             rebaseButton.topAnchor.constraint(equalTo: bodyLabel.bottomAnchor, constant: 14),
             rebaseButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -p),
             rebaseButton.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.bottomPadding),
+            rebaseButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
             cancelButton.centerYAnchor.constraint(equalTo: rebaseButton.centerYAnchor),
             cancelButton.trailingAnchor.constraint(equalTo: rebaseButton.leadingAnchor, constant: -8),
+            cancelButton.heightAnchor.constraint(equalToConstant: Metrics.buttonHeight),
         ])
     }
 

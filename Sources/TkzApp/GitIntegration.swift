@@ -53,7 +53,11 @@ public final class GitIntegration {
     /// Keyed by toplevel, not session: two rows on one worktree must not both rebase it. A rebase
     /// started from the terminal is caught by `GitRebase.preflight`'s `rebase-merge` check.
     private var rebasingToplevels: Set<String> = []
-    private let rebaseQueue = DispatchQueue(
+    /// Every git fetch this coordinator makes — a rebase's own fetch, and the origin check's —
+    /// runs here. `RebaseSheetController` is handed this same queue (see `git` in
+    /// `MainWindowController`) so the sheet's own opening fetch is serialized behind them instead
+    /// of racing a concurrent `git fetch` onto the same repository lock.
+    let rebaseQueue = DispatchQueue(
         label: "se.tkz.tkzmux.GitIntegration.rebase", qos: .userInitiated)
     /// When each repo (`RepoInfo.repoRoot`) was last fetched by us — by the sheet, a rebase or
     /// the origin check.
@@ -269,6 +273,15 @@ public final class GitIntegration {
         if store.state.selection == id || branchChanged {
             requestPullRequest(for: id)
         }
+        // The origin check's initial run — at launch with the preference already on, or the
+        // instant it is turned on — can land before any repo has resolved its base branch, in
+        // which case `checkOrigin` finds no targets and does nothing, and the first real check
+        // waits a full `originCheckInterval`. Retrying here, on every summary a session posts
+        // until one succeeds, catches the moment a base resolves instead of waiting on the timer;
+        // `checkOrigin` is a cheap no-op both when disarmed and when it has already run.
+        if originTimer != nil, lastOriginCheckAt == nil {
+            checkOrigin()
+        }
     }
 
     // MARK: Pull requests
@@ -398,7 +411,8 @@ public final class GitIntegration {
         }
         let recent = lastFetchAt[info.repoRoot].map { now().timeIntervalSince($0) < Self.recentFetchWindow }
         return GitRebase.Request(
-            toplevel: info.toplevel, gitDir: info.gitDir, base: base, skipFetch: recent ?? false)
+            toplevel: info.toplevel, gitDir: info.gitDir, base: base, skipFetch: recent ?? false,
+            expectedBranch: store.state.sessions[id]?.live?.git?.branch)
     }
 
     /// The sheet fetched on its own (through `GitRebase.fetch`): remember it so the rebase that
@@ -409,20 +423,24 @@ public final class GitIntegration {
     }
 
     /// Fetch the base and rebase `id`'s branch onto it, off the main actor; the outcome comes back
-    /// as a notice. Refusals (`GitRebase.preflight`) are notices too, at once.
-    public func rebaseOntoBase(_ id: SessionID, skipFetch: Bool = false) {
-        guard let live = store.state.sessions[id]?.live else { return }
+    /// as a notice. Refusals (`GitRebase.preflight`) are notices too, at once — and are reported
+    /// back in the return value, since those paths never reach `finishRebase` and so never call
+    /// `onRebaseFinished`: a caller that flips its own UI to "in progress" on the assumption this
+    /// always finishes asynchronously must gate that on the return value, not run it unconditionally.
+    @discardableResult
+    public func rebaseOntoBase(_ id: SessionID, skipFetch: Bool = false) -> Bool {
+        guard let live = store.state.sessions[id]?.live else { return false }
         guard let info = service.repoInfo(for: id), var prepared = rebaseRequest(for: id) else {
             onRebaseNotice?(Self.notice(for: .noBase, base: nil))
-            return
+            return false
         }
         if let refusal = GitRebase.preflight(summary: live.git, gitDir: info.gitDir) {
             onRebaseNotice?(Self.notice(for: refusal, base: prepared.base.ref))
-            return
+            return false
         }
         guard rebasingToplevels.insert(info.toplevel).inserted else {
             onRebaseNotice?(Self.notice(for: .rebaseInProgress, base: prepared.base.ref))
-            return
+            return false
         }
         prepared.skipFetch = prepared.skipFetch || skipFetch
         let request = prepared
@@ -442,6 +460,7 @@ public final class GitIntegration {
                 }
             }
         }
+        return true
     }
 
     private func finishRebase(

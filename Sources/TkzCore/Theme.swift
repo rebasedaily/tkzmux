@@ -310,8 +310,10 @@ extension Theme {
             searchMatchText: RGB(hex: 0x8a5a12),
             wtText: RGB(hex: 0x4a54c9),
             wtBackground: RGB(rgb: 86, 97, 216, alpha: 0.20),
-            // 5b draws the chip's text `#b06e10` — the light NEEDS YOU amber, not the meter's.
-            rebaseText: RGB(hex: 0xb06e10),
+            // 5b's `#b06e10` (the light NEEDS YOU amber) is ~3.18:1 at 10 pt against the composited
+            // amber fill and status bar — under the project's 4.0 light-strip threshold. `#8a5a12`
+            // (the same darker amber `searchMatchText` above already uses) clears it.
+            rebaseText: RGB(hex: 0x8a5a12),
             rebaseBackground: RGB(rgb: 221, 138, 30, alpha: 0.14),
             rebaseBorder: RGB(rgb: 221, 138, 30, alpha: 0.40),
             groupEdgeDefault: RGB(hex: 0x2c8a74),

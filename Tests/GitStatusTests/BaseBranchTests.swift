@@ -168,6 +168,31 @@ private func makeService(_ recorder: TKZ26Recorder, baseRetryInterval: TimeInter
         #expect(recorder.lastSummary?.behindBase == 0)
     }
 
+    /// `origin/HEAD` pointing at a remote-tracking ref that no longer exists — the remote's default
+    /// branch was renamed or removed after the symref was set, and a later `fetch --prune` took the
+    /// tracking ref with it but left the dangling symref in place. `symbolic-ref` still answers with
+    /// that gone target, so resolution must fall through to `origin/main` rather than returning it.
+    @Test func originHeadDanglingFallsBackToOriginMain() {
+        let fixture = TKZ26Fixture()
+        defer { fixture.destroy() }
+        let (_, seed, clone) = fixture.makeClone()
+        fixture.git(["switch", "-c", "develop"], in: seed)
+        fixture.git(["push", "-u", "origin", "develop"], in: seed)
+        fixture.git(["fetch"], in: clone)
+        fixture.git(["remote", "set-head", "origin", "develop"], in: clone)
+        fixture.git(["update-ref", "-d", "refs/remotes/origin/develop"], in: clone)
+        fixture.git(["switch", "-c", "feature"], in: clone)
+        let recorder = TKZ26Recorder()
+        let service = makeService(recorder)
+
+        service.track(SessionID.generate(), directory: clone)
+        service.refreshAllForTesting()
+
+        #expect(recorder.lastSummary?.baseBranch == "origin/main")
+        #expect(recorder.lastSummary?.aheadOfBase == 0)
+        #expect(recorder.lastSummary?.behindBase == 0)
+    }
+
     @Test func noRemoteFallsBackToTheLocalMain() {
         let fixture = TKZ26Fixture()
         defer { fixture.destroy() }

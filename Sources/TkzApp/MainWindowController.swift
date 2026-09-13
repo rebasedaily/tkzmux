@@ -1116,8 +1116,13 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         rebaseSheet.onFetched = { [weak self] id in self?.git?.noteFetched(for: id) }
         rebaseSheet.onRebase = { [weak self] id in
             guard let self else { return }
+            // `rebaseOntoBase` refuses (a detached HEAD, a merge or rebase already in progress, or
+            // the base going missing) without ever reaching `finishRebase`, so it never calls
+            // `onRebaseFinished` → `rebaseFinished(for:)` to close the sheet. Flipping the sheet to
+            // "Rebasing…" only when it actually started keeps a refusal from leaving the sheet
+            // stuck showing that forever, with Cancel disabled and no dismiss path.
+            guard self.git?.rebaseOntoBase(id, skipFetch: true) == true else { return }
             self.rebaseSheet.rebaseStarted(for: id)
-            self.git?.rebaseOntoBase(id, skipFetch: true)
         }
     }
 
@@ -1141,7 +1146,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             showNotice(GitIntegration.notice(for: .noBase, base: nil), for: .seconds(3))
             return
         }
-        guard gitSummary?.isOffBase == true else {
+        // The same rule as the chip and `canRebaseOntoBase`: `isOffBase` is also true for a branch
+        // that is merely ahead of its base (both counts known, `behindBase == 0`), which would open
+        // an empty sheet showing "Nothing to rebase" with the button disabled instead of this notice.
+        guard let behind = gitSummary?.behindBase, behind > 0 else {
             showNotice(GitIntegration.notice(for: .onBase, base: base), for: .seconds(3))
             return
         }
@@ -1678,6 +1686,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             git.onRebaseNotice = { [weak self] notice in self?.showNotice(notice, for: .seconds(8)) }
             git.onRebaseStateChange = { [weak self] in self?.updateStatusBar() }
             git.onRebaseFinished = { [weak self] id, _ in self?.rebaseSheet.rebaseFinished(for: id) }
+            rebaseSheet.useFetchQueue(git.rebaseQueue)
             git.start()
             claude?.onStop = { [weak git] id in git?.sessionDidStop(id) }
         }
