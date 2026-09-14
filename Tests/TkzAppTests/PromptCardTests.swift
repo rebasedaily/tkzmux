@@ -78,6 +78,40 @@ struct PromptCardTests {
         #expect(view.promptText == nil)
     }
 
+    @Test("A command prompt leads with its name in the accent and copies the line as typed")
+    func commandPromptGetsAStyledNameLine() throws {
+        let command = PromptCommand(name: "/brainstorming-skill", arguments: "Take a look at ADO 3620.")
+        let view = PromptCardView(theme: .default)
+        view.setSummary(
+            TranscriptSummary(
+                firstPrompt: command.typedLine, firstPromptAt: Self.now.addingTimeInterval(-3600),
+                firstPromptCommand: command),
+            now: Self.now)
+
+        let storage = try #require(view.promptTextViewForTesting.textStorage)
+        #expect(storage.string == "/brainstorming-skill\nTake a look at ADO 3620.")
+        let nameColor = storage.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        #expect(nameColor == Theme.default.accent.nsColor)
+        let bodyStart = "/brainstorming-skill\n".count
+        let bodyColor = storage.attribute(.foregroundColor, at: bodyStart, effectiveRange: nil) as? NSColor
+        #expect(bodyColor == Theme.default.foreground.nsColor)
+        // Copy gives back the line as typed, not the two rendered runs.
+        #expect(view.promptText == "/brainstorming-skill Take a look at ADO 3620.")
+        #expect(view.copyPromptButtonForTesting.isEnabled)
+    }
+
+    @Test("A command invoked with no arguments is its name alone, not an empty state")
+    func bareCommandPrompt() {
+        let command = PromptCommand(name: "/loop", arguments: nil)
+        let view = PromptCardView(theme: .default)
+        view.setSummary(
+            TranscriptSummary(firstPrompt: command.typedLine, firstPromptCommand: command),
+            now: Self.now)
+        #expect(view.promptTextViewForTesting.string == "/loop")
+        #expect(view.promptText == "/loop")
+        #expect(view.copyPromptButtonForTesting.isEnabled)
+    }
+
     @Test("A long prompt scrolls: its block is capped, and the cap follows the window")
     func longPromptIsCapped() {
         let view = PromptCardView(theme: .default)

@@ -52,6 +52,49 @@ struct TranscriptReaderTests {
         #expect(summary.recapSource == .assistantText)
     }
 
+    /// One `user` line, built here rather than in the shared fixture: a command block in that file
+    /// would move its first prompt and break the assertions that depend on it.
+    private static func userLine(_ content: String) -> Data {
+        let object: [String: Any] = [
+            "type": "user",
+            "message": ["role": "user", "content": content],
+            "timestamp": "2026-09-10T08:01:02.000Z",
+        ]
+        return try! JSONSerialization.data(withJSONObject: object)
+    }
+
+    @Test("A skill invocation becomes the line as typed, with its command kept apart")
+    func aSkillInvocationBecomesTheLineAsTyped() {
+        let data = Self.userLine("""
+            <command-message>brainstorming-skill:brainstorming-skill</command-message>
+            <command-name>/brainstorming-skill:brainstorming-skill</command-name>
+            <command-args>We need to start work on ADO 3620.</command-args>
+            """)
+        let summary = TranscriptReader.parse(head: data, tail: data)
+        #expect(summary.firstPrompt == "/brainstorming-skill We need to start work on ADO 3620.")
+        #expect(summary.firstPromptCommand?.name == "/brainstorming-skill")
+        #expect(summary.firstPromptCommand?.arguments == "We need to start work on ADO 3620.")
+    }
+
+    @Test("A bare slash command is a first prompt, so its summary is not empty")
+    func aBareSlashCommandIsStillAFirstPrompt() {
+        let data = Self.userLine(
+            "<command-message>loop</command-message>\n<command-name>/loop</command-name>")
+        let summary = TranscriptReader.parse(head: data, tail: data)
+        #expect(summary.firstPrompt == "/loop")
+        #expect(summary.firstPromptCommand?.arguments == nil)
+        // A summary that reports itself empty is thrown away for the stale one it replaces.
+        #expect(!summary.isEmpty)
+    }
+
+    @Test("A local command's echo is still not a first prompt")
+    func aCommandEchoIsStillSkipped() {
+        let data = Self.userLine("<command-name>/clear</command-name>\n<command-message>clear</command-message>")
+        let summary = TranscriptReader.parse(head: data, tail: data)
+        #expect(summary.firstPrompt == nil)
+        #expect(summary.firstPromptCommand == nil)
+    }
+
     @Test("Bad lines and a torn tail are skipped, not fatal")
     func tornAndBadLinesAreSkipped() throws {
         var data = Data("not json\n".utf8)
