@@ -44,6 +44,7 @@ private func makeState() -> AppState {
     // The non-default value, so a round trip that silently dropped it would fail loudly rather
     // than coincidentally matching `PersistedPreferences`'s own default.
     state.setShowSessionSpend(false)
+    state.setCheckOriginPeriodically(true)
     // A split and a second tab, so every assertion built on this fixture covers the layout too.
     _ = state.splitPane(two.focusedTerminalID, axis: .vertical, ratio: 0.3)
     _ = state.addTab(to: two.id)
@@ -84,7 +85,26 @@ private func makeState() -> AppState {
         #expect(restored.shortcuts == original.shortcuts)
         #expect(restored.autoResumeOnLaunch == original.autoResumeOnLaunch)
         #expect(restored.showSessionSpend == original.showSessionSpend)
+        #expect(restored.checkOriginPeriodically == original.checkOriginPeriodically)
     }
+}
+
+@Test func theOriginCheckSwitchRoundTripsAndDefaultsOff() throws {
+    var state = makeState()
+    state.setCheckOriginPeriodically(true)
+    let data = try StateFile.encode(StateDocument(state: PersistedState(state)))
+    var restored = AppState()
+    try StateFile.decode(data).state.apply(to: &restored)
+    #expect(restored.checkOriginPeriodically == true)
+
+    // A preferences block written before the switch existed has the key missing, not the whole
+    // object missing: the per-field `decodeIfPresent` fallback in
+    // `PersistedPreferences.init(from:)`, not `PersistedState`'s whole-object default.
+    var object = try JSONDecoder().decode([String: JSONValue].self, from: data)
+    object["preferences"] = .object(["autoResumeOnLaunch": .bool(true)])
+    var fresh = AppState()
+    try StateFile.decode(JSONEncoder().encode(object)).state.apply(to: &fresh)
+    #expect(fresh.checkOriginPeriodically == false)
 }
 
 @Test func aFileWithoutPreferencesLoadsWithTheDefaults() throws {

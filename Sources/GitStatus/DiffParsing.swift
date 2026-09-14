@@ -20,12 +20,16 @@ import Foundation
 public enum DiffBase: Hashable, Sendable {
     case head
     case upstream(String)
+    /// The repo's base branch (`GitSummary.baseBranch`, e.g. `origin/main`) — what a worktree
+    /// branch's PR will be diffed against. Same merge-base treatment as `upstream`.
+    case base(String)
 
     /// The header's menu title.
     public var label: String {
         switch self {
         case .head: "vs HEAD"
         case .upstream(let name): "vs \(name)"
+        case .base(let name): "vs \(name)"
         }
     }
 }

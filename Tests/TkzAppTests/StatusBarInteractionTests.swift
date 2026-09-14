@@ -248,7 +248,7 @@ struct StatusBarInteractionTests {
         let placed = view.placement()
         let leading = placed.filter { !$0.item.trailing }
         let trailing = placed.filter(\.item.trailing)
-        #expect(leading.count == 6)      // branch, WT, model, diff, files, ↑↓
+        #expect(leading.count == 7)      // branch, WT, model, diff, files, ↑↓, ⤿ 7 behind main
         #expect(trailing.count == 4)     // :3000, :5173, Context, Usage
         let last = try #require(trailing.last)
         #expect(abs(last.frame.maxX - (view.bounds.maxX - 15)) < 0.5)

@@ -24,6 +24,7 @@
 // with `DispatchQueue.main.async` + `MainActor.assumeIsolated` (FIFO, unlike an unstructured
 // `Task`), so two refreshes of one session are applied in the order they were produced.
 
+import AppKit
 import Foundation
 import GitStatus
 import TkzCore
@@ -33,6 +34,43 @@ public final class GitIntegration {
     public let store: AppStore
     public let service: GitStatusService
     public let prLookup: PRLookup
+
+    // MARK: Rebase and the origin check (design 5a/5b, 2026-09-13)
+
+    /// How often the opt-in origin check fetches each repo's base branch.
+    public static let originCheckInterval: TimeInterval = 5 * 60
+    /// A repo fetched within this window is not fetched again by the sheet: the number it shows
+    /// is fresh enough, and a second fetch would only make the sheet slower to open.
+    public static let recentFetchWindow: TimeInterval = 60
+
+    /// A rebase finished or was refused: the window controller shows this in the status strip.
+    public var onRebaseNotice: ((String) -> Void)?
+    /// `isRebasing` changed for some row: the strip re-derives its chip.
+    public var onRebaseStateChange: (() -> Void)?
+    /// The rebase for this row is over, however it went: the sheet closes.
+    public var onRebaseFinished: ((SessionID, GitRebase.Outcome) -> Void)?
+
+    /// Keyed by toplevel, not session: two rows on one worktree must not both rebase it. A rebase
+    /// started from the terminal is caught by `GitRebase.preflight`'s `rebase-merge` check.
+    private var rebasingToplevels: Set<String> = []
+    /// Every git fetch this coordinator makes — a rebase's own fetch, and the origin check's —
+    /// runs here. `RebaseSheetController` is handed this same queue (see `git` in
+    /// `MainWindowController`) so the sheet's own opening fetch is serialized behind them instead
+    /// of racing a concurrent `git fetch` onto the same repository lock.
+    let rebaseQueue = DispatchQueue(
+        label: "se.tkz.tkzmux.GitIntegration.rebase", qos: .userInitiated)
+    /// When each repo (`RepoInfo.repoRoot`) was last fetched by us — by the sheet, a rebase or
+    /// the origin check.
+    private var lastFetchAt: [String: Date] = [:]
+    private var originTimer: DispatchSourceTimer?
+    private var originObservers: [NSObjectProtocol] = []
+    private var originCheckInFlight = false
+    private var lastOriginCheckAt: Date?
+
+    /// Injected so a test can drive both paths without a remote.
+    let runRebase: @Sendable (GitRebase.Request) -> GitRebase.Outcome
+    let fetchBase: @Sendable (GitRebase.Request) -> GitRebase.Outcome?
+    private let now: () -> Date
 
     /// How often the selected row's ports are re-scanned. A scan of a 30-process tree is
     /// microseconds (TKZ-28), so the interval is about not waking the process, not about cost.
@@ -57,11 +95,17 @@ public final class GitIntegration {
         store: AppStore,
         service: GitStatusService? = nil,
         prLookup: PRLookup? = nil,
-        scanPorts: @escaping @Sendable (pid_t) -> [ListeningPort] = { PortScanner.scan(rootPid: $0) }
+        scanPorts: @escaping @Sendable (pid_t) -> [ListeningPort] = { PortScanner.scan(rootPid: $0) },
+        runRebase: @escaping @Sendable (GitRebase.Request) -> GitRebase.Outcome = { GitRebase.run($0) },
+        fetchBase: @escaping @Sendable (GitRebase.Request) -> GitRebase.Outcome? = { GitRebase.fetch($0) },
+        now: @escaping () -> Date = Date.init
     ) {
         self.store = store
         self.prLookup = prLookup ?? PRLookup()
         self.scanPorts = scanPorts
+        self.runRebase = runRebase
+        self.fetchBase = fetchBase
+        self.now = now
 
         let box = WeakBox()
         self.service = service ?? GitStatusService { id, summary in
@@ -98,6 +142,7 @@ public final class GitIntegration {
         timer.resume()
 
         if store.state.selection != nil { selectionChanged() }
+        applyOriginCheckPreference()
     }
 
     public func stop() {
@@ -105,6 +150,7 @@ public final class GitIntegration {
         started = false
         portTimer?.cancel()
         portTimer = nil
+        stopOriginCheck()
         service.stop()
     }
 
@@ -115,6 +161,7 @@ public final class GitIntegration {
         guard started else { return }
         if change.structure || !change.sessions.isEmpty { syncTracking() }
         if change.selection { selectionChanged() }
+        if change.chrome { applyOriginCheckPreference() }
     }
 
     /// A `Stop` hook landed for this row: Claude has just finished doing something to the working
@@ -226,6 +273,15 @@ public final class GitIntegration {
         if store.state.selection == id || branchChanged {
             requestPullRequest(for: id)
         }
+        // The origin check's initial run — at launch with the preference already on, or the
+        // instant it is turned on — can land before any repo has resolved its base branch, in
+        // which case `checkOrigin` finds no targets and does nothing, and the first real check
+        // waits a full `originCheckInterval`. Retrying here, on every summary a session posts
+        // until one succeeds, catches the moment a base resolves instead of waiting on the timer;
+        // `checkOrigin` is a cheap no-op both when disarmed and when it has already run.
+        if originTimer != nil, lastOriginCheckAt == nil {
+            checkOrigin()
+        }
     }
 
     // MARK: Pull requests
@@ -328,4 +384,248 @@ public final class GitIntegration {
         }
         store.update { $0.setPorts(ports, owners: owners, for: id) }
     }
+
+    // MARK: Rebase (design 5a/5b)
+
+    /// Whether a rebase is running on `id`'s worktree — started from this row or another row
+    /// of the same checkout.
+    public func isRebasing(_ id: SessionID) -> Bool {
+        guard let toplevel = service.repoInfo(for: id)?.toplevel else { return false }
+        return rebasingToplevels.contains(toplevel)
+    }
+
+    /// The Session-menu item's enablement: the branch is behind a known base and nothing is
+    /// rebasing it. The chip follows the same rule through `StatusBarModel`.
+    public func canRebaseOntoBase(_ id: SessionID) -> Bool {
+        guard let git = store.state.sessions[id]?.live?.git, git.isOffBase,
+            let behind = git.behindBase, behind > 0
+        else { return false }
+        return !isRebasing(id)
+    }
+
+    /// Everything the runner needs for `id`, or `nil` before the repo and its base are known.
+    /// `skipFetch` is set when the repo was fetched within `recentFetchWindow`.
+    public func rebaseRequest(for id: SessionID) -> GitRebase.Request? {
+        guard let info = service.repoInfo(for: id), let base = service.baseBranch(for: id) else {
+            return nil
+        }
+        let recent = lastFetchAt[info.repoRoot].map { now().timeIntervalSince($0) < Self.recentFetchWindow }
+        return GitRebase.Request(
+            toplevel: info.toplevel, gitDir: info.gitDir, base: base, skipFetch: recent ?? false,
+            expectedBranch: store.state.sessions[id]?.live?.git?.branch)
+    }
+
+    /// The sheet fetched on its own (through `GitRebase.fetch`): remember it so the rebase that
+    /// follows, and the origin check, do not fetch again right away.
+    public func noteFetched(for id: SessionID) {
+        guard let root = service.repoInfo(for: id)?.repoRoot else { return }
+        lastFetchAt[root] = now()
+    }
+
+    /// Fetch the base and rebase `id`'s branch onto it, off the main actor; the outcome comes back
+    /// as a notice. Refusals (`GitRebase.preflight`) are notices too, at once — and are reported
+    /// back in the return value, since those paths never reach `finishRebase` and so never call
+    /// `onRebaseFinished`: a caller that flips its own UI to "in progress" on the assumption this
+    /// always finishes asynchronously must gate that on the return value, not run it unconditionally.
+    @discardableResult
+    public func rebaseOntoBase(_ id: SessionID, skipFetch: Bool = false) -> Bool {
+        guard let live = store.state.sessions[id]?.live else { return false }
+        guard let info = service.repoInfo(for: id), var prepared = rebaseRequest(for: id) else {
+            onRebaseNotice?(Self.notice(for: .noBase, base: nil))
+            return false
+        }
+        if let refusal = GitRebase.preflight(summary: live.git, gitDir: info.gitDir) {
+            onRebaseNotice?(Self.notice(for: refusal, base: prepared.base.ref))
+            return false
+        }
+        guard rebasingToplevels.insert(info.toplevel).inserted else {
+            onRebaseNotice?(Self.notice(for: .rebaseInProgress, base: prepared.base.ref))
+            return false
+        }
+        prepared.skipFetch = prepared.skipFetch || skipFetch
+        let request = prepared
+        onRebaseStateChange?()
+
+        let hadUpstream = live.git?.upstream != nil
+        let run = runRebase
+        let box = WeakBox()
+        box.value = self
+        rebaseQueue.async {
+            let outcome = run(request)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    box.value?.finishRebase(
+                        id, info: info, base: request.base.ref, hadUpstream: hadUpstream,
+                        outcome: outcome)
+                }
+            }
+        }
+        return true
+    }
+
+    private func finishRebase(
+        _ id: SessionID, info: RepoInfo, base: String, hadUpstream: Bool,
+        outcome: GitRebase.Outcome
+    ) {
+        rebasingToplevels.remove(info.toplevel)
+        if case .fetchFailed = outcome {} else if case .timedOut("fetch") = outcome {} else {
+            lastFetchAt[info.repoRoot] = now()
+        }
+        onRebaseStateChange?()
+        onRebaseFinished?(id, outcome)
+        onRebaseNotice?(Self.notice(for: outcome, base: base, hadUpstream: hadUpstream))
+        // FSEvents will have fired during the rebase, but the last refresh may have run mid-way
+        // (a detached HEAD, half the commits): one more, now that the tree has settled.
+        service.refresh(id)
+    }
+
+    /// The status-strip line for each way a rebase can end. `base` is the ref (`origin/main`).
+    static func notice(for outcome: GitRebase.Outcome, base: String, hadUpstream: Bool) -> String {
+        switch outcome {
+        case .rebased(let commits, let stashReapplied):
+            var text = "Rebased onto \(base) (\(commits) \(commits == 1 ? "commit" : "commits"))"
+            if stashReapplied { text += ", local changes reapplied" }
+            if hadUpstream { text += " \u{2014} push with git push --force-with-lease" }
+            return text
+        case .rebasedStashConflict:
+            return "Rebased onto \(base), but reapplying your local changes conflicted \u{2014} they are kept in git stash"
+        case .upToDate:
+            return "Already up to date with \(base)"
+        case .conflicts(let files):
+            return "Rebase stopped on conflicts in \(files) \(files == 1 ? "file" : "files"), tree restored \u{2014} run git rebase \(base) by hand"
+        case .fetchFailed(let message):
+            return "Fetch of \(base) failed: \(message)"
+        case .failed(let message):
+            return "Rebase failed, tree restored: \(message)"
+        case .timedOut(let step):
+            return "Rebase timed out during \(step), tree restored"
+        }
+    }
+
+    static func notice(for refusal: GitRebase.Refusal, base: String?) -> String {
+        switch refusal {
+        case .noBase: "No base branch to rebase onto"
+        case .onBase: "Already on \(base ?? "the base branch")"
+        case .detachedHead: "Rebase skipped: HEAD is detached"
+        case .rebaseInProgress: "Rebase skipped: a rebase is already in progress"
+        case .mergeInProgress: "Rebase skipped: a merge is in progress"
+        }
+    }
+
+    // MARK: Origin check (opt-in, off by default)
+
+    /// Arms or disarms the periodic fetch to match `AppState.checkOriginPeriodically`. Turning it
+    /// on runs a check at once; turning it off cancels the timer. Idempotent.
+    func applyOriginCheckPreference() {
+        let enabled = started && store.state.checkOriginPeriodically
+        if enabled, originTimer == nil {
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            timer.schedule(
+                wallDeadline: .now() + Self.originCheckInterval, repeating: Self.originCheckInterval,
+                leeway: .seconds(30))
+            timer.setEventHandler { [weak self] in
+                MainActor.assumeIsolated { self?.checkOrigin() }
+            }
+            originTimer = timer
+            timer.resume()
+            let center = NSWorkspace.shared.notificationCenter
+            originObservers.append(center.addObserver(
+                forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.checkOriginIfStale() }
+            })
+            originObservers.append(NotificationCenter.default.addObserver(
+                forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.checkOriginIfStale() }
+            })
+            checkOrigin()
+        } else if !enabled {
+            stopOriginCheck()
+        }
+    }
+
+    private func stopOriginCheck() {
+        originTimer?.cancel()
+        originTimer = nil
+        for observer in originObservers { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        for observer in originObservers { NotificationCenter.default.removeObserver(observer) }
+        originObservers = []
+    }
+
+    /// Wake / activation: only when the timer would have fired by now had the Mac stayed awake.
+    func checkOriginIfStale() {
+        guard originTimer != nil else { return }
+        guard let last = lastOriginCheckAt else { checkOrigin(); return }
+        if now().timeIntervalSince(last) >= Self.originCheckInterval { checkOrigin() }
+    }
+
+    /// One fetch per repo that has a session and a *remote* base — a local `main` has nothing
+    /// to fetch. Serial on the rebase queue, so a check can never race a rebase. Coalesces: a
+    /// check already in flight is not doubled.
+    func checkOrigin() {
+        guard !originCheckInFlight else { return }
+        let targets = Self.originCheckTargets(
+            sessions: Array(tracked.keys), repoInfo: service.repoInfo(for:),
+            baseBranch: service.baseBranch(for:))
+        guard !targets.isEmpty else { return }
+        originCheckInFlight = true
+        lastOriginCheckAt = now()
+        let fetch = fetchBase
+        let box = WeakBox()
+        box.value = self
+        rebaseQueue.async {
+            var fetched: [String] = []
+            for target in targets where fetch(target.request) == nil {
+                fetched.append(target.repoRoot)
+            }
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { box.value?.finishOriginCheck(fetched: fetched, targets: targets) }
+            }
+        }
+    }
+
+    struct OriginCheckTarget: Equatable, Sendable {
+        var repoRoot: String
+        var request: GitRebase.Request
+        var sessions: [SessionID]
+    }
+
+    /// One target per repo root, carrying every session of that repo. Pure, so the "once per
+    /// repo, not per session, and only with a remote base" rule is a test.
+    static func originCheckTargets(
+        sessions: [SessionID],
+        repoInfo: (SessionID) -> RepoInfo?,
+        baseBranch: (SessionID) -> BaseBranch?
+    ) -> [OriginCheckTarget] {
+        var byRoot: [String: OriginCheckTarget] = [:]
+        var order: [String] = []
+        for id in sessions.sorted(by: { $0.uuid.uuidString < $1.uuid.uuidString }) {
+            guard let info = repoInfo(id), let base = baseBranch(id), base.remote != nil else { continue }
+            if byRoot[info.repoRoot] == nil {
+                byRoot[info.repoRoot] = OriginCheckTarget(
+                    repoRoot: info.repoRoot,
+                    request: GitRebase.Request(toplevel: info.toplevel, gitDir: info.gitDir, base: base),
+                    sessions: [])
+                order.append(info.repoRoot)
+            }
+            byRoot[info.repoRoot]?.sessions.append(id)
+        }
+        return order.compactMap { byRoot[$0] }
+    }
+
+    private func finishOriginCheck(fetched: [String], targets: [OriginCheckTarget]) {
+        originCheckInFlight = false
+        let stamp = now()
+        for root in fetched { lastFetchAt[root] = stamp }
+        // The refs moved in the common dir, so FSEvents already scheduled a refresh; this one
+        // covers the case where the fetch brought nothing new but the chip was never computed.
+        for target in targets where fetched.contains(target.repoRoot) {
+            for id in target.sessions { service.refresh(id) }
+        }
+    }
+
+    /// Test access.
+    var isOriginCheckArmed: Bool { originTimer != nil }
+    var lastFetchDates: [String: Date] { lastFetchAt }
 }

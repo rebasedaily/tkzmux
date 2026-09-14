@@ -202,6 +202,17 @@ public enum GitStatusParsing {
         }
     }
 
+    /// Parses `git rev-list --left-right --count <base>...HEAD`: `3\t2\n`. `left` is the number of
+    /// commits only on the left ref (the base — what the branch is *behind* by), `right` the ones
+    /// only on the right (HEAD — what it is *ahead* by). Anything but two integers is `nil`.
+    public static func parseLeftRightCount(_ text: String) -> (left: Int, right: Int)? {
+        let tokens = text.split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" })
+        guard tokens.count == 2, let left = Int(tokens[0]), let right = Int(tokens[1]) else {
+            return nil
+        }
+        return (left, right)
+    }
+
     /// Parses `git diff HEAD --shortstat`, e.g. ` 12 files changed, 142 insertions(+), 38 deletions(-)`.
     ///
     /// Any of the three clauses may be absent (a pure addition has no `deletions(-)` clause), and

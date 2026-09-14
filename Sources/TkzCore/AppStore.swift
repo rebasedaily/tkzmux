@@ -169,6 +169,7 @@ public struct ChangeSet: Hashable, Sendable {
             || old.windowFrame != new.windowFrame
             || old.shortcuts != new.shortcuts
             || old.autoResumeOnLaunch != new.autoResumeOnLaunch
+            || old.checkOriginPeriodically != new.checkOriginPeriodically
             || old.statuslineOffered != new.statuslineOffered
             || old.dismissedUpdateVersion != new.dismissedUpdateVersion
             || old.update != new.update

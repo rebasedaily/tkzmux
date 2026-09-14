@@ -58,6 +58,11 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     /// says ⌘D, but that is *Split Vertically* in the cmux bindings (TKZ-36), so "G for git"
     /// takes the shift chord. Toggles; Esc also closes it.
     public static let showChanges = ShortcutAction("showChanges")
+    /// ⌥⌘R — the rebase sheet for the selected session's branch: fetch the repo's base branch
+    /// (`origin/main`) and rebase onto it (design 5a/5b). The artboard says ⌘R, but that is
+    /// *Resume Session* and ⇧⌘R is *Rename*, so "R for rebase" takes the ⌥ chord. Also the
+    /// `⤿ 7 behind main` chip in the status bar. Enabled only while the branch is behind its base.
+    public static let rebaseOntoBase = ShortcutAction("rebaseOntoBase")
     /// No key: deletes `bin/` and `zsh/` under Application Support so new shells are plain (M3.3).
     public static let removeShellIntegration = ShortcutAction("removeShellIntegration")
     /// No key: installs (or removes) tkzmux's `statusLine` command in `~/.claude/settings.json`,
@@ -73,6 +78,9 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     /// enable/disable, all sessions). The per-session opt-out lives on the row's context menu
     /// instead — it names one session, which an app-menu checkbox cannot.
     public static let toggleSessionSpend = ShortcutAction("toggleSessionSpend")
+    /// No key: fetch every tracked repo's base branch every 5 min so the `⤿ 7 behind main` chip stays
+    /// honest, shown with a checkmark. Off by default — it is background network activity.
+    public static let toggleOriginCheck = ShortcutAction("toggleOriginCheck")
     /// No key: flip between the dark preset and its light twin — the ☾/☀ segment's command form.
     /// No checkmark: this is a flip between two named appearances, not a boolean that is on or off.
     public static let toggleTheme = ShortcutAction("toggleTheme")
@@ -179,8 +187,9 @@ public enum ShortcutsTable {
             .newSession, .searchSessions, .commandPalette, .toggleSidebar, .renameSession,
             .closeTerminal, .closeSession, .jumpToNeedsYou, .notifications, .settings,
             .openFolder, .reloadConfig, .nextSession, .previousSession, .copyLastMessage,
-            .showFirstPrompt, .showChanges, .removeShellIntegration, .statusLineIntegration, .resumeSession, .resumeAllInGroup,
-            .toggleAutoResume, .toggleSessionSpend, .toggleTheme,
+            .showFirstPrompt, .showChanges, .rebaseOntoBase, .removeShellIntegration, .statusLineIntegration,
+            .resumeSession, .resumeAllInGroup,
+            .toggleAutoResume, .toggleSessionSpend, .toggleOriginCheck, .toggleTheme,
             .newTerminal, .splitVertically, .splitHorizontally,
             .focusPaneLeft, .focusPaneRight, .focusPaneUp, .focusPaneDown,
             .equalizeSplits, .zoomPane, .previousTab, .nextTab,
@@ -206,6 +215,7 @@ public enum ShortcutsTable {
             .copyLastMessage: Shortcut("c", [.shift, .command]),
             .showFirstPrompt: Shortcut("p", [.option, .command]),
             .showChanges: Shortcut("g", [.shift, .command]),
+            .rebaseOntoBase: Shortcut("r", [.option, .command]),
             .resumeSession: Shortcut("r", .command),
             .closeSession: Shortcut("w", [.shift, .command]),
             .newTerminal: Shortcut("t", .command),
@@ -244,12 +254,15 @@ public enum ShortcutsTable {
         case .copyLastMessage: "Copy Last Message"
         case .showFirstPrompt: "Show First Prompt & Recap"
         case .showChanges: "Show Changes"
+        // Static like `.toggleTheme`: the sheet and the notices name the real ref.
+        case .rebaseOntoBase: "Rebase onto Base Branch\u{2026}"
         case .removeShellIntegration: "Remove Shell Integration"
         case .statusLineIntegration: "Status Line Integration\u{2026}"
         case .resumeSession: "Resume Session"
         case .resumeAllInGroup: "Resume All in Group"
         case .toggleAutoResume: "Auto-resume Sessions on Launch"
         case .toggleSessionSpend: "Show Token Usage & Spend"
+        case .toggleOriginCheck: "Check Origin Periodically"
         // Static on purpose: `MainMenuTests` asserts the menu item's title equals this, so a
         // state-dependent "Switch to Light…" would fail on every toggle.
         case .toggleTheme: "Toggle Light / Dark Theme"

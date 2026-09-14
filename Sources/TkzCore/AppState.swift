@@ -42,6 +42,12 @@ public struct AppState: Hashable, Sendable {
     /// `Session.spendTrackingDisabled`; that per-session flag is checked in addition to this one,
     /// never instead of it. Durable, in `PersistedPreferences`.
     public var showSessionSpend: Bool
+    /// Fetch every tracked repo's base branch from its remote every few minutes, so the status
+    /// bar's `⤿ 7 behind main` chip reflects what is on GitHub rather than what the last manual fetch
+    /// brought in (2026-09-13). **Off by default**: it is the one background network activity
+    /// besides the release check, and it runs under the user's own git credentials.
+    /// Durable, in `PersistedPreferences`.
+    public var checkOriginPeriodically: Bool
     /// The active colour scheme. The ☾/☀ toggle in the toolbar writes it; `MainWindowController` is
     /// its sole observer, via `ChangeSet.theme`. Durable, in `PersistedPreferences`.
     public var themePreset: Theme.Preset
@@ -63,6 +69,7 @@ public struct AppState: Hashable, Sendable {
         statuslineOffered: Bool = false,
         dismissedUpdateVersion: String? = nil,
         showSessionSpend: Bool = true,
+        checkOriginPeriodically: Bool = false,
         themePreset: Theme.Preset = Theme.default.preset,
         update: UpdateState = UpdateState()
     ) {
@@ -79,6 +86,7 @@ public struct AppState: Hashable, Sendable {
         self.statuslineOffered = statuslineOffered
         self.dismissedUpdateVersion = dismissedUpdateVersion
         self.showSessionSpend = showSessionSpend
+        self.checkOriginPeriodically = checkOriginPeriodically
         self.themePreset = themePreset
         self.update = update
     }

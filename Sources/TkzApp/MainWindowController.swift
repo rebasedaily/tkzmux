@@ -347,6 +347,8 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     public let promptCard: PromptCardController
     /// The view-only changes viewer over the terminal (design 2c.2 / TKZ-58).
     let changes: ChangesViewerController
+    /// The rebase sheet (design 5a/5b): ⌥⌘R, or the `⤿ 7 behind main` chip in the status bar.
+    public let rebaseSheet: RebaseSheetController
     /// The other way onto the card: scrolling up in the focused terminal peeks it. One policy for
     /// the window — it only ever describes the selected row's focused pane, and is reset when
     /// that changes.
@@ -498,6 +500,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         self.cheatSheet = cheatSheet
         self.promptCard = PromptCardController(theme: theme)
         self.changes = ChangesViewerController(theme: theme)
+        self.rebaseSheet = RebaseSheetController(theme: theme)
         self.chrome = ChromeViewController(
             splitViewController: splitViewController, overlay: cheatSheet.view, theme: theme)
 
@@ -1108,6 +1111,67 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         detail.install(changesView: changes.view)
         changes.onDismiss = { [weak self] in self?.focusTerminalIfSessionShown() }
         statusBar.onShowChanges = { [weak self] in self?.toggleChangesViewer() }
+        statusBar.onRebaseOntoBase = { [weak self] in self?.toggleRebaseSheet() }
+        rebaseSheet.onDismiss = { [weak self] in self?.focusTerminalIfSessionShown() }
+        rebaseSheet.onFetched = { [weak self] id in self?.git?.noteFetched(for: id) }
+        rebaseSheet.onRebase = { [weak self] id in
+            guard let self else { return }
+            // `rebaseOntoBase` refuses (a detached HEAD, a merge or rebase already in progress, or
+            // the base going missing) without ever reaching `finishRebase`, so it never calls
+            // `onRebaseFinished` → `rebaseFinished(for:)` to close the sheet. Flipping the sheet to
+            // "Rebasing…" only when it actually started keeps a refusal from leaving the sheet
+            // stuck showing that forever, with Cancel disabled and no dismiss path.
+            guard self.git?.rebaseOntoBase(id, skipFetch: true) == true else { return }
+            self.rebaseSheet.rebaseStarted(for: id)
+        }
+    }
+
+    // MARK: - Rebase sheet (design 5a/5b)
+
+    /// ⌥⌘R, the Session menu, or a click on the `⤿ 7 behind main` chip: the sheet for the selected
+    /// row, or — when it is already up for that row — back to the terminal. A row that is not
+    /// behind its base gets a notice instead of an empty sheet, since the palette lists the
+    /// command whatever the branch's state.
+    public func toggleRebaseSheet() {
+        guard let id = store.state.selection, let session = store.state.sessions[id] else {
+            showNotice("No session selected", for: .seconds(2))
+            return
+        }
+        if rebaseSheet.isShown, rebaseSheet.sessionID == id {
+            rebaseSheet.dismiss()
+            return
+        }
+        let gitSummary = session.live?.git
+        guard let base = gitSummary?.baseBranch else {
+            showNotice(GitIntegration.notice(for: .noBase, base: nil), for: .seconds(3))
+            return
+        }
+        // The same rule as the chip and `canRebaseOntoBase`: `isOffBase` is also true for a branch
+        // that is merely ahead of its base (both counts known, `behindBase == 0`), which would open
+        // an empty sheet showing "Nothing to rebase" with the button disabled instead of this notice.
+        guard let behind = gitSummary?.behindBase, behind > 0 else {
+            showNotice(GitIntegration.notice(for: .onBase, base: base), for: .seconds(3))
+            return
+        }
+        if git?.isRebasing(id) == true {
+            showNotice(GitIntegration.notice(for: .rebaseInProgress, base: base), for: .seconds(3))
+            return
+        }
+        var model = RebaseSheetModel(baseRef: base)
+        model.behind = gitSummary?.behindBase
+        model.shortcut = ShortcutsTable.resolved(state: store.state)[.rebaseOntoBase]?.displayString
+        model.claudeWorking = session.status == .working
+        let request = git?.rebaseRequest(for: id)
+        // No coordinator yet (a test harness): nothing to fetch with, so the count shown is the
+        // last refresh's and the sheet is ready at once.
+        if request == nil { model.phase = .ready }
+        rebaseSheet.present(for: id, request: request, model: model, over: rebaseSheetAnchor())
+    }
+
+    /// The chip's own frame when it is on the strip, else the detail area: the sheet sits above
+    /// the strip either way, at its right.
+    private func rebaseSheetAnchor() -> NSRect? {
+        detailAnchor()
     }
 
     /// ⇧⌘G, or a click on the status bar's diff chips: the viewer for the selected row's
@@ -1567,6 +1631,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         cheatSheet.stop()
         promptCard.dismiss()
         changes.dismiss()
+        rebaseSheet.dismiss()
         if let commandKeyMonitor {
             NSEvent.removeMonitor(commandKeyMonitor)
             self.commandKeyMonitor = nil
@@ -1618,6 +1683,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     public var git: GitIntegration? {
         didSet {
             guard let git else { return }
+            git.onRebaseNotice = { [weak self] notice in self?.showNotice(notice, for: .seconds(8)) }
+            git.onRebaseStateChange = { [weak self] in self?.updateStatusBar() }
+            git.onRebaseFinished = { [weak self] id, _ in self?.rebaseSheet.rebaseFinished(for: id) }
+            rebaseSheet.useFetchQueue(git.rebaseQueue)
             git.start()
             claude?.onStop = { [weak git] id in git?.sessionDidStop(id) }
         }
@@ -1878,10 +1947,15 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             applySelection(focusTerminal: true)
             updateToolbarTitle()
             // The card is about one row; another row is a different question. The changes
-            // viewer likewise.
+            // viewer likewise, and the rebase sheet.
             promptCard.dismiss()
             changes.dismiss()
+            rebaseSheet.dismiss()
             _ = scrollReveal.reset()
+        }
+        // The sheet's Rebase button follows the row's Claude status (off while working).
+        if let id = rebaseSheet.sessionID, change.sessions.contains(id) {
+            rebaseSheet.setClaudeWorking(store.state.sessions[id]?.status == .working)
         }
         if change.chrome {
             applySidebarVisible(store.state.sidebarVisible)
@@ -2127,6 +2201,9 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     func updateStatusBar() {
         var model = Self.statusModel(for: store.state)
         model.notice = transientNotice
+        // Process state, like the notice: a rebase in flight is the coordinator's to know, not
+        // the store's, so `statusModel` stays a pure function of persisted state.
+        if let id = store.state.selection, git?.isRebasing(id) == true { model.isRebasing = true }
         statusBar.model = model
     }
 
@@ -2182,6 +2259,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             model.ahead = git.map(\.ahead)
             model.behind = git.map(\.behind)
         }
+        // The `⤿ 7 behind main` chip (design 5a/5b): drawn by the strip only while `behindBase > 0`.
+        model.baseBranch = git?.baseBranch
+        model.behindBase = git?.behindBase
+        model.rebaseShortcut = ShortcutsTable.resolved(state: state)[.rebaseOntoBase]?.displayString
         // Sidecar first, `gh` second — design.md → *Git integration → PR*. `GitStatusService` owns
         // `GitSummary.pr` and has already merged whatever `PRLookup` found, so the sidecar only
         // wins where nothing was looked up.
@@ -2532,6 +2613,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         if store.state.showSessionSpend { claude?.refreshAllUsage() }
     }
 
+    /// The periodic base-branch fetch (2026-09-13). `GitIntegration` reads the flag back through
+    /// `ChangeSet.chrome` and arms or disarms its timer.
+    func toggleOriginCheck() {
+        store.update { $0.setCheckOriginPeriodically(!$0.checkOriginPeriodically) }
+    }
+
     // MARK: - Theme
 
     /// Flips to the current preset's light/dark counterpart. The store is the only writer; the
@@ -2568,6 +2655,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         palette.theme = new
         promptCard.theme = new
         changes.theme = new
+        rebaseSheet.theme = new
         cheatSheet.setTheme(new)
 
         // The palette and the prompt card are separate `NSPanel`s and re-derive their own
@@ -3298,6 +3386,14 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         dispatcher.setHandler(.copyLastMessage) { [weak self] in self?.copyLastMessage() }
         dispatcher.setHandler(.showFirstPrompt) { [weak self] in self?.toggleFirstPromptCard() }
         dispatcher.setHandler(.showChanges) { [weak self] in self?.toggleChangesViewer() }
+        dispatcher.setHandler(.rebaseOntoBase) { [weak self] in self?.toggleRebaseSheet() }
+        // Present in the menu whatever the branch's state (the menu is the inventory of what the
+        // app can do), enabled only while there is something to rebase onto.
+        dispatcher.setEnabled(.rebaseOntoBase) { [weak self] in
+            guard let self, let id = self.store.state.selection else { return false }
+            return self.git?.canRebaseOntoBase(id)
+                ?? (self.store.state.sessions[id]?.live?.git.map { $0.isOffBase && ($0.behindBase ?? 0) > 0 } ?? false)
+        }
         dispatcher.setHandler(.removeShellIntegration) { [weak self] in self?.removeShellIntegration() }
         dispatcher.setHandler(.statusLineIntegration) { [weak self] in self?.statusLineIntegration() }
         // M5.2
@@ -3308,6 +3404,8 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         dispatcher.setHandler(.toggleSessionSpend) { [weak self] in self?.toggleSessionSpend() }
         dispatcher.setCheckmark(.toggleAutoResume) { [weak self] in self?.store.state.autoResumeOnLaunch ?? false }
         dispatcher.setCheckmark(.toggleSessionSpend) { [weak self] in self?.store.state.showSessionSpend ?? true }
+        dispatcher.setHandler(.toggleOriginCheck) { [weak self] in self?.toggleOriginCheck() }
+        dispatcher.setCheckmark(.toggleOriginCheck) { [weak self] in self?.store.state.checkOriginPeriodically ?? false }
         dispatcher.setHandler(.nextSession) { [weak self] in
             self?.store.update { $0.selectAdjacentSession(offset: 1) }
         }

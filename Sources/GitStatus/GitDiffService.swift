@@ -117,7 +117,7 @@ public final class GitDiffService: Sendable {
         switch base {
         case .head:
             return "HEAD"
-        case .upstream(let name):
+        case .upstream(let name), .base(let name):
             guard
                 let output = try? GitProcess.git(
                     ["merge-base", name, "HEAD"], in: toplevel, gitPath: gitPath),

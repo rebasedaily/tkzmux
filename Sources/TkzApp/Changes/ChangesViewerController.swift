@@ -44,7 +44,7 @@ final class ChangesViewerController {
     /// The counts the viewer last saw for its row. A `GitSummary` that differs in them is the
     /// FSEvents signal, already debounced and coalesced by `GitStatusService`; one that differs
     /// only in its PR or timestamp is not a reason to re-run `git diff`.
-    private var lastCounts: [Int]?
+    private var lastCounts: CountsSnapshot?
     private var generation = 0
 
     private let summaryProvider: SummaryProvider
@@ -86,7 +86,7 @@ final class ChangesViewerController {
         sessionID = id
         self.toplevel = toplevel
         lastCounts = Self.counts(of: git)
-        model.setBases(upstream: git?.upstream)
+        model.setBases(upstream: git?.upstream, base: git?.baseBranch)
         view.isHidden = false
         view.takeKeyboard()
         loadSummary()
@@ -109,13 +109,27 @@ final class ChangesViewerController {
         let counts = Self.counts(of: git)
         guard counts != lastCounts else { return }
         lastCounts = counts
-        model.setBases(upstream: git?.upstream)
+        model.setBases(upstream: git?.upstream, base: git?.baseBranch)
         loadSummary()
     }
 
-    static func counts(of git: GitSummary?) -> [Int]? {
+    /// `counts` alone collapses distinct base branches to the same key when both `aheadOfBase` and
+    /// `behindBase` are `nil` — every base with no measured drift (or none at all) then reads as
+    /// `-1, -1`. `baseBranch` breaks that tie, so switching to a base with the same not-yet-measured
+    /// drift still counts as a change and re-reads the diff.
+    struct CountsSnapshot: Equatable {
+        var counts: [Int]
+        var baseBranch: String?
+    }
+
+    static func counts(of git: GitSummary?) -> CountsSnapshot? {
         guard let git else { return nil }
-        return [git.changedFiles, git.untrackedFiles, git.insertions, git.deletions, git.ahead, git.behind]
+        return CountsSnapshot(
+            counts: [
+                git.changedFiles, git.untrackedFiles, git.insertions, git.deletions, git.ahead, git.behind,
+                git.aheadOfBase ?? -1, git.behindBase ?? -1,
+            ],
+            baseBranch: git.baseBranch)
     }
 
     // MARK: Reads

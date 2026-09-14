@@ -79,6 +79,11 @@ The full accounting, file by file, is in [docs/privacy.md](docs/privacy.md).
 
 - **Usage and context need the status line installed.** Claude Code publishes that data nowhere
   else. The integration is offered once at startup and lives in the app menu.
+- **The PR badge needs `gh`** and a GitHub origin. Branch, diff stats, ahead/behind (against the
+  upstream, and the `⤿ 7 behind main` chip against the base branch) and ports work without it.
+- **Shell integration differs a little per shell.** bash runs as a non-login shell with `--rcfile`;
+  shells other than zsh, bash and fish only get `bin/` prepended to `PATH`. Details in
+  [docs/privacy.md](docs/privacy.md).
 - **The PR badge needs `gh`** and a GitHub origin. Branch, diff stats, ahead/behind and ports work
   without it.
 - **One Claude per session.** Splits and tabs share the row's Claude session and status.

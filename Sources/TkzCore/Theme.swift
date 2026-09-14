@@ -67,6 +67,12 @@ public struct Theme: Hashable, Sendable {
     // MARK: Badges, groups, diff, separators
     public let wtText: RGB                // WT badge (sidebar row and status bar)
     public let wtBackground: RGB
+    /// The status bar's `⤿ 7 behind main` chip (design 5a/5b): the preset's `waiting` amber as text,
+    /// over a faint fill of the same amber with a 1 pt border of it — an attention chip, drawn
+    /// only while the branch is behind its base.
+    public let rebaseText: RGB
+    public let rebaseBackground: RGB
+    public let rebaseBorder: RGB
     public let groupEdgeDefault: RGB      // 2 pt group colour edge (the "Toolbox" example group)
     public let diffAdd: RGB               // +142
     public let diffRemove: RGB            // −38
@@ -233,6 +239,9 @@ extension Theme {
             searchMatchText: RGB(hex: 0xffe9c2),
             wtText: RGB(hex: 0xc3c8fd),
             wtBackground: RGB(rgb: 139, 147, 248, alpha: 0.20),
+            rebaseText: waiting,
+            rebaseBackground: RGB(rgb: 251, 191, 84, alpha: 0.13),
+            rebaseBorder: RGB(rgb: 251, 191, 84, alpha: 0.35),
             groupEdgeDefault: RGB(hex: 0x41c6a8),
             diffAdd: RGB(hex: 0x4ade80),
             diffRemove: diffRemove,
@@ -301,6 +310,12 @@ extension Theme {
             searchMatchText: RGB(hex: 0x8a5a12),
             wtText: RGB(hex: 0x4a54c9),
             wtBackground: RGB(rgb: 86, 97, 216, alpha: 0.20),
+            // 5b's `#b06e10` (the light NEEDS YOU amber) is ~3.18:1 at 10 pt against the composited
+            // amber fill and status bar — under the project's 4.0 light-strip threshold. `#8a5a12`
+            // (the same darker amber `searchMatchText` above already uses) clears it.
+            rebaseText: RGB(hex: 0x8a5a12),
+            rebaseBackground: RGB(rgb: 221, 138, 30, alpha: 0.14),
+            rebaseBorder: RGB(rgb: 221, 138, 30, alpha: 0.40),
             groupEdgeDefault: RGB(hex: 0x2c8a74),
             diffAdd: working,
             diffRemove: diffRemove,
