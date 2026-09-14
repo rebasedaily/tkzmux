@@ -128,6 +128,9 @@ final class DetailViewController: NSViewController {
     /// Above the panes, and 0 pt tall for a session with one tab — so a single-terminal session's
     /// layout is exactly what it was before TKZ-36.
     let tabStrip: TabStripView
+    /// A file tab's read-only viewer, laid exactly over the panes and hidden while a terminal tab
+    /// is on screen. The panes stay laid out underneath so switching back never resizes a pty.
+    let fileViewer: FileViewerView
     private var tabStripHeight: NSLayoutConstraint!
     let statusBar: StatusBarView
     let emptyState: NSView
@@ -166,6 +169,7 @@ final class DetailViewController: NSViewController {
     init(paneContainer: PaneContainerView, statusBar: StatusBarView, theme: Theme) {
         self.paneContainer = paneContainer
         self.tabStrip = TabStripView(theme: theme)
+        self.fileViewer = FileViewerView(theme: theme)
         self.statusBar = statusBar
         self.theme = theme
         self.emptyState = DetailViewController.makeEmptyState(theme: theme)
@@ -189,6 +193,10 @@ final class DetailViewController: NSViewController {
         emptyState.translatesAutoresizingMaskIntoConstraints = false
         terminalContainer.addSubview(tabStrip)
         terminalContainer.addSubview(paneContainer)
+        fileViewer.translatesAutoresizingMaskIntoConstraints = false
+        fileViewer.isHidden = true
+        terminalContainer.addSubview(fileViewer)
+        fileViewer.layer?.zPosition = 1
         terminalContainer.addSubview(emptyState)
         emptyState.layer?.zPosition = 2
 
@@ -210,6 +218,11 @@ final class DetailViewController: NSViewController {
             paneContainer.leadingAnchor.constraint(equalTo: terminalContainer.leadingAnchor),
             paneContainer.trailingAnchor.constraint(equalTo: terminalContainer.trailingAnchor),
             paneContainer.bottomAnchor.constraint(equalTo: terminalContainer.bottomAnchor),
+
+            fileViewer.topAnchor.constraint(equalTo: paneContainer.topAnchor),
+            fileViewer.leadingAnchor.constraint(equalTo: paneContainer.leadingAnchor),
+            fileViewer.trailingAnchor.constraint(equalTo: paneContainer.trailingAnchor),
+            fileViewer.bottomAnchor.constraint(equalTo: paneContainer.bottomAnchor),
 
             emptyState.topAnchor.constraint(equalTo: terminalContainer.topAnchor),
             emptyState.leadingAnchor.constraint(equalTo: terminalContainer.leadingAnchor),
@@ -233,6 +246,7 @@ final class DetailViewController: NSViewController {
         terminalContainer.layer?.backgroundColor = theme.terminalBackground.cgColor
         statusBar.theme = theme
         paneContainer.apply(theme: theme)
+        if let url = fileViewer.url { fileViewer.show(url, theme: theme, home: NSHomeDirectory()) }
         (emptyState as? EmptyStateView)?.apply(theme: theme)
     }
 
@@ -399,6 +413,8 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// re-creating them: a new view means a detached and re-attached surface, i.e. a `DIRTY_FULL`
     /// flash on a pane the user did not touch.
     private(set) var panes: [TerminalID: PaneController] = [:]
+    /// Each row's read-only file tabs. Window state, never persisted: see `FileTabs`.
+    private(set) var fileTabs: [SessionID: FileTabs] = [:]
     /// Makes the view for a pane. The real window supplies a `TerminalMetalView`; tests supply a
     /// plain focusable `NSView`, which is what keeps the suite GPU-free.
     private let terminalViewFactory: (TerminalID) -> NSView
@@ -1260,16 +1276,32 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
 
     private func wireTabStrip() {
         detail.tabStrip.onSelectTab = { [weak self] index in
-            guard let self, let id = store.state.selection,
-                let tab = store.state.sessions[id]?.tabs[safe: index]
+            guard let self, let id = store.state.selection, let session = store.state.sessions[id]
             else { return }
-            store.update { $0.selectTab(tab.id) }
-            if let focused = store.state.sessions[id]?.focusedTerminalID { focusPane(focused) }
+            switch TabStripTarget.at(index, terminalTabCount: session.tabs.count) {
+            case .file(let fileIndex):
+                fileTabs[id]?.select(fileIndex)
+                applyTabStrip()
+            case .terminal(let terminalIndex):
+                guard let tab = session.tabs[safe: terminalIndex] else { return }
+                fileTabs[id]?.deselect()
+                store.update { $0.selectTab(tab.id) }
+                // Re-selecting the tab that was already active changes nothing in the store, so
+                // nothing would hide the viewer.
+                applyTabStrip()
+                if let focused = store.state.sessions[id]?.focusedTerminalID { focusPane(focused) }
+            }
         }
         detail.tabStrip.onCloseTab = { [weak self] index in
             guard let self, let id = store.state.selection,
-                let session = store.state.sessions[id], let tab = session.tabs[safe: index]
+                let session = store.state.sessions[id]
             else { return }
+            if case .file(let fileIndex) = TabStripTarget.at(index, terminalTabCount: session.tabs.count) {
+                fileTabs[id]?.close(fileIndex)
+                applyTabStrip()
+                return
+            }
+            guard let tab = session.tabs[safe: index] else { return }
             // The last tab is the row: fall through to Close Session, confirmation and all.
             guard session.tabs.count > 1 else {
                 removeSelectedSession()
@@ -1370,18 +1402,53 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             detail.setTabStripVisible(false)
             return
         }
-        let model = TabStripModel(
-            items: session.tabs.enumerated().map { index, tab in
-                TabStripItem(
-                    // A tab has no name of its own: the row's title belongs to the row, and a
-                    // shell's title is not a rename (the same rule `Session.displayTitle` follows).
-                    // Numbering is honest and stable; a real name is a later ticket's business.
-                    title: "Terminal \(index + 1)",
-                    isSelected: tab.id == session.activeTab,
-                    terminalCount: tab.terminalCount)
-            })
+        if fileTabs.keys.contains(where: { store.state.sessions[$0] == nil }) {
+            fileTabs = fileTabs.filter { store.state.sessions[$0.key] != nil }
+        }
+        let model = (fileTabs[id] ?? FileTabs()).stripModel(for: session)
         detail.tabStrip.configure(model, theme: theme)
         detail.setTabStripVisible(model.isVisible)
+        applyFileViewer()
+    }
+
+    // MARK: - File tabs
+
+    /// Opens `url` read-only in a tab of the row that owns `terminal`.
+    func openFileTab(_ url: URL, from terminal: TerminalID) {
+        guard let id = store.state.sessionID(owning: terminal) else { return }
+        openFileTab(url, in: id)
+    }
+
+    func openFileTab(_ url: URL, in id: SessionID) {
+        fileTabs[id, default: FileTabs()].open(url)
+        if store.state.selection == id { applyTabStrip() }
+    }
+
+    /// Shows the selected row's active file tab over the panes, or hides the viewer and gives the
+    /// keyboard back to the focused pane.
+    private func applyFileViewer() {
+        let viewer = detail.fileViewer
+        guard let id = store.state.selection, let file = fileTabs[id]?.activeFile else {
+            guard !viewer.isHidden else { return }
+            let viewerHadKeyboard = (window.firstResponder as? NSView)?.isDescendant(of: viewer) ?? false
+            viewer.isHidden = true
+            if viewerHadKeyboard, let focused = focusedVisibleTerminalID { focusPane(focused) }
+            return
+        }
+        viewer.onOpenFile = { [weak self] url in self?.openFileTab(url, in: id) }
+        viewer.show(file, theme: theme, home: home)
+        if viewer.isHidden {
+            viewer.isHidden = false
+            // Keys typed while reading must not land, unseen, in the shell underneath.
+            window.makeFirstResponder(viewer.textView)
+        }
+    }
+
+    /// What a ⌘-clicked path in `terminal` resolves to.
+    private func resolveFilePath(_ candidate: String, in terminal: TerminalID) -> URL? {
+        guard let session = store.state.session(owning: terminal) else { return nil }
+        return FilePathResolver.resolve(
+            candidate, bases: FilePathResolver.bases(for: terminal, in: session), home: home)
     }
 
     /// Builds the pane tree for the current selection, reusing every pane that survives.
@@ -1522,6 +1589,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         pane.input.mouseHandler = pane.mouse
         pane.mouse.attach(to: metal)
         pane.mouse.sendBytes = { [weak host] bytes in host?.writeInput(id, Data(bytes)) }
+        // ⌘-click on a path printed in this pane: resolved against this pane's directory and the
+        // row's worktree, opened read-only in a tab of this row.
+        pane.mouse.resolveFilePath = { [weak self] candidate in
+            self?.resolveFilePath(candidate, in: id)
+        }
+        pane.mouse.openFile = { [weak self] url in self?.openFileTab(url, from: id) }
         // ⌘V with an image and no text: the Ctrl-V chord Claude Code reads the clipboard on, sent
         // through this pane's own key path so kitty vs legacy encoding is honoured.
         pane.mouse.pasteClipboardImage = { [weak input = pane.input] view in

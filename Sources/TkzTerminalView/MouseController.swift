@@ -77,6 +77,17 @@ public protocol MouseControllerTerminal: AnyObject {
 
     /// The OSC 8 URI under `position` plus the run of cells sharing it, for the hover underline.
     func hyperlinkRun(at position: SurfacePoint) -> (uri: String, columns: ClosedRange<UInt16>, row: UInt32)?
+
+    /// The viewport row under `position`, one string per column, plus the pointer's column —
+    /// what ⌘-click reads a plain-text file path from.
+    func rowCells(at position: SurfacePoint) -> (cells: [String], column: UInt16, row: UInt32)?
+}
+
+extension MouseControllerTerminal {
+    /// A terminal that cannot read its rows simply has no file links.
+    public func rowCells(at position: SurfacePoint) -> (cells: [String], column: UInt16, row: UInt32)? {
+        nil
+    }
 }
 
 // MARK: - Pure policy
@@ -201,6 +212,13 @@ public final class MouseController: NSObject, TerminalMouseHandling {
 
     /// Opens a vetted link. Injected so the tests never launch anything.
     public var openURL: @MainActor (TerminalLinkAction) -> Void = MouseController.defaultOpen
+
+    /// Turns a path printed as plain text into a file that exists, or nil. Only the app knows the
+    /// pane's directory, so it supplies this; unset means plain-text paths are not links at all.
+    public var resolveFilePath: (@MainActor (String) -> URL?)?
+
+    /// Opens a file `resolveFilePath` found. The app shows it in a read-only tab.
+    public var openFile: (@MainActor (URL) -> Void)?
 
     // MARK: Tuning
 
@@ -371,6 +389,13 @@ public final class MouseController: NSObject, TerminalMouseHandling {
             return true
         }
 
+        // ⌘-click on a plain-text path that names a real file opens it, and likewise stops here.
+        if mods.contains(.command), event.type == .leftMouseDown, let openFile,
+           let link = fileLink(at: position, in: terminal) {
+            openFile(link.url)
+            return true
+        }
+
         let route = terminalMouseRoute(
             trackingEnabled: terminal.isMouseTrackingEnabled, shiftHeld: mods.contains(.shift))
         lastRoute = route
@@ -475,6 +500,11 @@ public final class MouseController: NSObject, TerminalMouseHandling {
             if let run = terminal.hyperlinkRun(at: position),
                terminalLinkAction(for: run.uri) != .refuse {
                 showLinkOverlay(run: run, in: view)
+                NSCursor.pointingHand.set()
+                return true
+            }
+            if let link = fileLink(at: position, in: terminal) {
+                showLinkOverlay(run: link.run, in: view)
                 NSCursor.pointingHand.set()
                 return true
             }
@@ -744,6 +774,20 @@ public final class MouseController: NSObject, TerminalMouseHandling {
         hoveredLink = nil
         linkOverlay?.removeFromSuperlayer()
         linkOverlay = nil
+    }
+
+    /// The plain-text file path under `position`, resolved to a file that exists, with the run of
+    /// cells to underline. Nil when there is no resolver, no path-shaped token, or no such file.
+    public func fileLink(
+        at position: SurfacePoint,
+        in terminal: any MouseControllerTerminal
+    ) -> (url: URL, run: (uri: String, columns: ClosedRange<UInt16>, row: UInt32))? {
+        guard let resolveFilePath,
+              let row = terminal.rowCells(at: position),
+              let candidate = FileLinkDetector.candidate(in: row.cells, column: Int(row.column)),
+              let url = resolveFilePath(candidate.path)
+        else { return nil }
+        return (url, (uri: url.path, columns: candidate.columns, row: row.row))
     }
 
     /// The overlay layer, if a link is currently underlined. Tests only.

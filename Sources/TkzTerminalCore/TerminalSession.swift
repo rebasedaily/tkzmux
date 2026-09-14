@@ -1132,6 +1132,19 @@ public final class TerminalSession: Sendable {
         }
     }
 
+    /// The cells of the viewport row under `position` (one string per column) and the column the
+    /// pointer is on — the raw material for ⌘-click on a plain-text file path.
+    public func rowCells(
+        at position: SurfacePoint
+    ) -> (cells: [String], column: UInt16, row: UInt32)? {
+        state.withLock { state -> (cells: [String], column: UInt16, row: UInt32)? in
+            guard let point = state.selection.gridPoint(at: position) else { return nil }
+            let cells = RowTextLookup.cells(
+                onRowOf: point, in: state.terminal, columns: state.options.cols)
+            return (cells, point.x, point.y)
+        }
+    }
+
     /// Shared shape for the gesture methods: mutate under the lock, signal a frame after it drops.
     private func selectionChange<T: Sendable>(
         _ body: (inout SessionState) throws -> T
