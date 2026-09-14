@@ -84,8 +84,6 @@ The full accounting, file by file, is in [docs/privacy.md](docs/privacy.md).
 - **Shell integration differs a little per shell.** bash runs as a non-login shell with `--rcfile`;
   shells other than zsh, bash and fish only get `bin/` prepended to `PATH`. Details in
   [docs/privacy.md](docs/privacy.md).
-- **The PR badge needs `gh`** and a GitHub origin. Branch, diff stats, ahead/behind and ports work
-  without it.
 - **One Claude per session.** Splits and tabs share the row's Claude session and status.
 
 ## License and credits
