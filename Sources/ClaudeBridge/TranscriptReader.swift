@@ -33,8 +33,13 @@ public struct TranscriptSummary: Hashable, Sendable {
         case assistantText
     }
 
+    /// The prompt as a human reads it. For a slash command or a skill that is the line as typed,
+    /// not the tag block the transcript stores — see ``firstPromptCommand``.
     public var firstPrompt: String?
     public var firstPromptAt: Date?
+    /// Set when the first prompt was a command invocation, so the card can style its name apart
+    /// from its arguments. When it is set, `firstPrompt` is exactly its `typedLine`.
+    public var firstPromptCommand: PromptCommand?
     public var recap: String?
     public var recapAt: Date?
     public var recapSource: RecapSource?
@@ -43,11 +48,13 @@ public struct TranscriptSummary: Hashable, Sendable {
 
     public init(
         firstPrompt: String? = nil, firstPromptAt: Date? = nil,
+        firstPromptCommand: PromptCommand? = nil,
         recap: String? = nil, recapAt: Date? = nil, recapSource: RecapSource? = nil,
         title: String? = nil
     ) {
         self.firstPrompt = firstPrompt
         self.firstPromptAt = firstPromptAt
+        self.firstPromptCommand = firstPromptCommand
         self.recap = recap
         self.recapAt = recapAt
         self.recapSource = recapSource
@@ -140,6 +147,7 @@ public enum TranscriptReader {
             if let prompt = prompt(from: object) {
                 summary.firstPrompt = prompt.text
                 summary.firstPromptAt = prompt.at
+                summary.firstPromptCommand = prompt.command
                 break
             }
         }
@@ -173,7 +181,11 @@ public enum TranscriptReader {
     }
 
     /// The text of a `user` line a human typed, or nil for everything else that arrives as `user`.
-    private static func prompt(from object: [String: Any]) -> (text: String, at: Date?)? {
+    /// A slash command or skill invocation comes back as the line as typed, plus the command it
+    /// was parsed from; everything else has no command and is passed through unchanged.
+    private static func prompt(
+        from object: [String: Any]
+    ) -> (text: String, command: PromptCommand?, at: Date?)? {
         guard object["type"] as? String == "user",
               object["isMeta"] as? Bool != true,
               object["isSidechain"] as? Bool != true,
@@ -181,7 +193,10 @@ public enum TranscriptReader {
         else { return nil }
         guard let text = userText(of: message["content"])?.trimmed, !text.isEmpty else { return nil }
         for prefix in commandEchoPrefixes where text.hasPrefix(prefix) { return nil }
-        return (text, timestamp(of: object))
+        if let command = PromptCommand.parse(text) {
+            return (command.typedLine, command, timestamp(of: object))
+        }
+        return (text, nil, timestamp(of: object))
     }
 
     /// A string, or the `text` blocks of a content array joined — an image block contributes

@@ -188,9 +188,12 @@ public struct TranscriptIndex: Sendable {
                     !text.isEmpty,
                     !TranscriptReader.commandEchoPrefixes.contains(where: text.hasPrefix)
                 else { continue }
+                // A skill invocation is indexed as the line the human typed, not as the tag block
+                // the transcript stores it in — so a search matches the words, not the markup.
+                let prompt = PromptCommand.parse(text)?.typedLine ?? text
                 // A prompt is what makes a turn; everything after it belongs to that turn.
                 turns += 1
-                append(Self.line(turn: turns, kind: .user, text: text, at: at), to: &lines, &characters)
+                append(Self.line(turn: turns, kind: .user, text: prompt, at: at), to: &lines, &characters)
             case "assistant":
                 if let text = TranscriptReader.assistantTextBlock(of: object) {
                     append(

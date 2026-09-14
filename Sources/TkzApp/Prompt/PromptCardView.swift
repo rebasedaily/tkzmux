@@ -307,6 +307,8 @@ final class PromptCardView: NSView {
                 .font: Theme.Fonts.ui(theme.fontUI.caption),
                 .foregroundColor: theme.foregroundDim.nsColor,
             ])
+        // These apply to the whole text storage and so flatten a command prompt's two runs — which
+        // is harmless only because every caller re-renders straight after. Keep that ordering.
         promptView.font = Theme.Fonts.mono(theme.fontUI.title)
         promptView.textColor = theme.foreground.nsColor
         recapView.font = Theme.Fonts.ui(theme.fontUI.title)
@@ -328,6 +330,15 @@ final class PromptCardView: NSView {
             promptMeta.stringValue = Self.hitMetaLine(hit, now: now)
             set(promptView, text: hit.glyph + " " + hit.text, placeholder: promptPlaceholder,
                 font: Theme.Fonts.mono(theme.fontUI.title), color: theme.foreground)
+        } else if let command = summary.firstPromptCommand {
+            // A slash command or a skill: its name leads in the accent, its arguments read as any
+            // other prompt. An empty placeholder is what lets a bare `/loop` stand on its own line
+            // rather than being followed by "No prompt yet".
+            promptPill.text = "FIRST PROMPT"
+            promptMeta.stringValue = Self.metaLine(startedAt: summary.firstPromptAt, now: now)
+            set(promptView, text: command.arguments, placeholder: "",
+                font: Theme.Fonts.mono(theme.fontUI.title), color: theme.foreground,
+                leading: Run(text: command.name, font: Self.commandFont(theme), color: theme.accent))
         } else {
             promptPill.text = "FIRST PROMPT"
             promptMeta.stringValue = Self.metaLine(startedAt: summary.firstPromptAt, now: now)
@@ -342,16 +353,45 @@ final class PromptCardView: NSView {
         relayoutText()
     }
 
-    private func set(_ textView: NSTextView, text: String?, placeholder: String, font: NSFont, color: RGB) {
+    /// One styled run ahead of the text — the command's name over its arguments. It never escapes
+    /// this view, so the `NSFont` it holds imposes no `Sendable` requirement.
+    private struct Run {
+        let text: String
+        let font: NSFont
+        let color: RGB
+    }
+
+    private func set(
+        _ textView: NSTextView, text: String?, placeholder: String, font: NSFont, color: RGB,
+        leading: Run? = nil
+    ) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.lineHeightMultiple = 1.25
-        let string = text ?? placeholder
-        let attributes: [NSAttributedString.Key: Any] = [
+        let body = text ?? placeholder
+        let string = NSMutableAttributedString()
+        if let leading {
+            string.append(NSAttributedString(
+                string: leading.text + (body.isEmpty ? "" : "\n"),
+                attributes: [
+                    .font: leading.font,
+                    .foregroundColor: leading.color.nsColor,
+                    .paragraphStyle: paragraph,
+                ]))
+        }
+        string.append(NSAttributedString(string: body, attributes: [
             .font: font,
             .foregroundColor: (text == nil ? theme.foregroundDim : color).nsColor,
             .paragraphStyle: paragraph,
-        ]
-        textView.textStorage?.setAttributedString(NSAttributedString(string: string, attributes: attributes))
+        ]))
+        textView.textStorage?.setAttributedString(string)
+    }
+
+    /// The bold mono face for a command's name. `Theme.Fonts.mono(_:weight:)` honours its weight
+    /// only on the system fallback — the named JetBrains Mono face resolves first — so the trait is
+    /// asked for here instead. A family with no bold comes back unchanged, and the accent colour
+    /// still tells the name apart from the arguments.
+    private static func commandFont(_ theme: Theme) -> NSFont {
+        NSFontManager.shared.convert(Theme.Fonts.mono(theme.fontUI.title), toHaveTrait: .boldFontMask)
     }
 
     /// Sizes each scroll view to its text, capped at `maxTextHeight`. The text views track the

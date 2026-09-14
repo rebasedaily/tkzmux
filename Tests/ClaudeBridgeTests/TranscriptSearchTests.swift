@@ -78,6 +78,24 @@ struct TranscriptSearchTests {
         #expect(index.lines.first?.text == "TodoWrite()")
     }
 
+    @Test func aSkillInvocationIsIndexedAsTheLineAsTyped() {
+        let data = Self.prompt("""
+            <command-message>brainstorming-skill:brainstorming-skill</command-message>
+            <command-name>/brainstorming-skill:brainstorming-skill</command-name>
+            <command-args>We need to start work on ADO 3620.</command-args>
+            """).data(using: .utf8)!
+        let index = Self.index(data)
+        #expect(index.turns == 1)
+        #expect(index.lines.first?.text == "/brainstorming-skill We need to start work on ADO 3620.")
+
+        // Both halves of the line are searchable, and neither hit shows the markup.
+        for needle in ["brainstorming", "ADO 3620"] {
+            let hits = Self.search(needle, in: index)
+            #expect(hits.count == 1, "\(needle) is findable")
+            #expect(hits.first?.excerpt.contains("<command") == false)
+        }
+    }
+
     @Test func sidechainsAndMetaLinesAreNotIndexed() {
         let noise = [
             Self.line([
