@@ -22,12 +22,16 @@ struct MainWindowLaunchTests {
     typealias Harness = MainWindowControllerTests.Harness
 
     /// An empty window over a group rooted at a directory that really exists.
+    ///
+    /// The real home, not the shared harness's empty one: this suite is about directories — a
+    /// `~` has to expand to somewhere that exists, or the launch it asserts on fails and puts a
+    /// modal alert up in the middle of the test run.
     static func makeHarness(
         repoRoot: String = NSTemporaryDirectory()
     ) -> (harness: Harness, groupID: GroupID) {
         var state = AppState()
         let group = state.addGroup(name: "Scratch", repoRoot: repoRoot)
-        let harness = MainWindowControllerTests.makeHarness(state)
+        let harness = MainWindowControllerTests.makeHarness(state, home: NSHomeDirectory())
         return (harness, group.id)
     }
 

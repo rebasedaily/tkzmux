@@ -38,6 +38,15 @@ struct FileTabs: Hashable {
     /// A terminal tab was chosen.
     mutating func deselect() { activeIndex = nil }
 
+    /// Closes the tab on screen, if one is. Returns whether it did — ⌘W asks this first, and only
+    /// falls through to the row's terminals when the answer is no.
+    @discardableResult
+    mutating func closeActive() -> Bool {
+        guard let index = activeIndex else { return false }
+        close(index)
+        return true
+    }
+
     /// Closes a tab. Closing the one on screen shows its neighbour, the way a browser does; closing
     /// the last file goes back to the terminal.
     mutating func close(_ index: Int) {

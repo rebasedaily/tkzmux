@@ -3560,11 +3560,18 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         store.update { $0.selectAdjacentTab(in: id, offset: offset) }
     }
 
-    /// ⌘W. Closes the focused pane; when it is the row's last terminal this *is* Close Session,
-    /// confirmation and all, which is the 2026-09-08 behaviour for every row that has one pane —
-    /// i.e. every row that existed before this ticket.
+    /// ⌘W. Closes what is on screen: a read-only file tab if one is showing, otherwise the focused
+    /// pane — and when that is the row's last terminal this *is* Close Session, confirmation and
+    /// all, which is the 2026-09-08 behaviour for every row that has one pane — i.e. every row that
+    /// existed before this ticket.
     func closeFocusedTerminal() {
         guard let id = store.state.selection, let session = store.state.sessions[id] else { return }
+        // A file tab is what the reader is looking at; closing it must never reach the session
+        // underneath, which still has every terminal it had before the file was opened.
+        if fileTabs[id]?.closeActive() == true {
+            applyTabStrip()
+            return
+        }
         guard session.terminalCount > 1 else {
             removeSelectedSession()
             return

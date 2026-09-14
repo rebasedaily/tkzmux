@@ -226,9 +226,21 @@ struct MainWindowControllerTests {
         }
     }
 
+    /// A home directory that does not exist, and is never created.
+    ///
+    /// `AppState.fixture` puts its rows in `~/dev/northwind` and friends, and the window reopens a
+    /// selected row lazily — so on a machine that happens to *have* a `~/dev/northwind`, the
+    /// launcher resolves it, spawns a shell into the spy host and hides the empty state, while the
+    /// same test passes on every machine that does not. Pinning the harness to an empty home makes
+    /// a fixture row what the suite has always assumed it is: a row with no directory to come back
+    /// to, and therefore no surface. Tests that want a surface ask the host for one (`openRow`),
+    /// and the ones that exercise a real reopen build their rows under a real directory
+    /// (`MainWindowRestoreTests.makeRestoredHarness`), where this home is not consulted at all.
+    static let emptyHome = NSTemporaryDirectory() + "tkzmux-tests-empty-home-\(UUID().uuidString)"
+
     /// A harness whose panes each get their own `FakeTerminalView`, so a split has two real
     /// (GPU-free) surfaces rather than one view and a stand-in.
-    static func makeSplitHarness(_ state: AppState = .fixture) -> Harness {
+    static func makeSplitHarness(_ state: AppState = .fixture, home: String = emptyHome) -> Harness {
         _ = NSApplication.shared
         let store = AppStore(state: state)
         let host = SpyTerminalHost()
@@ -238,19 +250,19 @@ struct MainWindowControllerTests {
             terminalViewFactory: { _ in
                 FakeTerminalView(frame: NSRect(x: 0, y: 0, width: 450, height: 700))
             },
-            theme: .default)
+            theme: .default, home: home)
         let harness = Harness(store: store, controller: controller, host: host, terminalView: first)
         harness.layout()
         return harness
     }
 
-    static func makeHarness(_ state: AppState = .fixture) -> Harness {
+    static func makeHarness(_ state: AppState = .fixture, home: String = emptyHome) -> Harness {
         _ = NSApplication.shared
         let store = AppStore(state: state)
         let host = SpyTerminalHost()
         let view = FakeTerminalView(frame: NSRect(x: 0, y: 0, width: 900, height: 700))
         let controller = MainWindowController(
-            store: store, host: host, terminalView: view, theme: .default)
+            store: store, host: host, terminalView: view, theme: .default, home: home)
         let harness = Harness(
             store: store, controller: controller, host: host, terminalView: view)
         harness.layout()
@@ -607,6 +619,47 @@ struct MainWindowControllerTests {
         // A real ratio change does place it again.
         harness.mutate { $0.setRatio(above: first, to: 0.6) }
         #expect(harness.controller.paneContainer.appliedRatioCount > placed)
+    }
+
+    // MARK: - File tabs
+
+    /// ⌘W on a read-only file tab closes the file, not the row. The regression it guards: a row
+    /// with one pane fell straight through to Close Session, so reading a file and closing it
+    /// took the whole session — first Claude tab included — with it.
+    @Test("⌘W closes the file tab on screen, leaving the row and its terminals alone")
+    func closingAFileTabLeavesTheSessionAlone() throws {
+        let harness = Self.makeHarness()
+        defer { harness.tearDown() }
+        let (id, terminal) = try Self.selectedRowWithAShell(harness)
+        let file = URL(fileURLWithPath: "/tmp/tkzmux-close-focus.md")
+        harness.controller.openFileTab(file, in: id)
+        harness.layout()
+        #expect(harness.controller.fileTabs[id]?.activeFile == file)
+
+        harness.controller.closeFocusedTerminal()
+        harness.store.flush()
+
+        #expect(harness.controller.fileTabs[id]?.isEmpty == true)
+        #expect(harness.controller.fileTabs[id]?.activeFile == nil)
+        #expect(harness.store.state.sessions[id] != nil)
+        #expect(harness.store.state.sessions[id]?.terminalIDs.contains(terminal) == true)
+    }
+
+    /// With no file on screen the shortcut means what it always meant: the row's last terminal is
+    /// Close Session. A closed file tab must not leave that path disarmed.
+    @Test("⌘W after the last file tab is closed still closes the row")
+    func closingTheRowStillWorksOnceTheFilesAreGone() throws {
+        let harness = Self.makeHarness()
+        defer { harness.tearDown() }
+        let (id, _) = try Self.selectedRowWithAShell(harness)
+        harness.controller.openFileTab(URL(fileURLWithPath: "/tmp/tkzmux-close-focus.md"), in: id)
+        harness.layout()
+        harness.controller.closeFocusedTerminal()
+        harness.store.flush()
+
+        harness.controller.closeFocusedTerminal()
+        harness.store.flush()
+        #expect(harness.store.state.sessions[id] == nil)
     }
 
     // MARK: - Pane chrome (design 2c.3 / 2c.4)
