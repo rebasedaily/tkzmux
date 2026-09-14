@@ -82,6 +82,21 @@ struct FileViewerTests {
         #expect(tabs.activeFile?.path == "/b.md")
     }
 
+    @Test func closeActiveOnlyActsWhileAFileIsOnScreen() {
+        var tabs = FileTabs()
+        #expect(tabs.closeActive() == false)
+
+        tabs.open(URL(fileURLWithPath: "/a.md"))
+        tabs.open(URL(fileURLWithPath: "/b.md"))
+        #expect(tabs.closeActive() == true)
+        #expect(tabs.activeFile?.path == "/a.md")
+
+        // A terminal tab is showing: ⌘W is the row's business again, not the strip's.
+        tabs.deselect()
+        #expect(tabs.closeActive() == false)
+        #expect(tabs.files.count == 1)
+    }
+
     @Test func theStripListsFileTabsAfterTerminalTabs() {
         let session = Session(groupID: GroupID.generate(), cwd: "/repo", accountKey: "k")
         var tabs = FileTabs()
