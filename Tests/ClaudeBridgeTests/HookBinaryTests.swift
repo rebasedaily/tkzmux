@@ -229,6 +229,45 @@ private func runHook(
         #expect(fullMessage?.hasPrefix(event.lastAssistantMessage ?? "") == true)
     }
 
+    /// TKZ-74: a `Notification` hook's `message` reaches the app, capped at 1 KiB.
+    @Test func notificationMessageArrivesCapped() async throws {
+        let binary = try hookBinaryURL()
+        let dir = try makeSocketDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let socketPath = dir.appendingPathComponent("hook.sock")
+
+        let collector = FrameCollector()
+        let server = HookServer(socketPath: socketPath) { collector.append($0) }
+        try server.start()
+        defer { server.stop() }
+
+        let short = "{\"session_id\":\"s\",\"notification_type\":\"permission_prompt\",\"message\":\"Claude needs your permission to use Bash\"}"
+        let long = "{\"session_id\":\"s\",\"notification_type\":\"elicitation_dialog\",\"message\":\"\(String(repeating: "m", count: 5000))\"}"
+        for payload in [short, long] {
+            let result = try runHook(
+                ["Notification"],
+                stdin: Array(payload.utf8),
+                environment: cleanEnvironment(["TKZMUX_SOCKET": socketPath.path]),
+                binary: binary
+            )
+            #expect(result.exitCode == 0)
+        }
+
+        let frames = await collector.waitFor(count: 2)
+        #expect(frames.count == 2)
+        guard case .hook(let first, _, _, _, _) = frames[0],
+              case .hook(let second, _, _, _, _) = frames[1]
+        else {
+            Issue.record("expected two .hook frames")
+            return
+        }
+        #expect(first.kind == .notification)
+        #expect(first.notificationType == .permissionPrompt)
+        #expect(first.message == "Claude needs your permission to use Bash")
+        #expect(second.notificationType == .elicitationDialog)
+        #expect(second.message?.utf8.count == 1024)
+    }
+
     /// Exercises the byte-level string-truncation scanner directly: a 300 KiB message pushes the
     /// whole frame over the 240 KiB limit (unlike the 200 KiB fixture above, which stays under it),
     /// so this is the only test that actually runs `truncateLongStrings`.

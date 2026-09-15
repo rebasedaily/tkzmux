@@ -48,6 +48,12 @@ public struct AppState: Hashable, Sendable {
     /// besides the release check, and it runs under the user's own git credentials.
     /// Durable, in `PersistedPreferences`.
     public var checkOriginPeriodically: Bool
+    /// Post a macOS user notification when Claude finishes a turn in a session the user is not
+    /// looking at, i.e. when the row gets its "done" tint (2026-09-15). On by default. The NEEDS
+    /// YOU banner has no switch of its own: it is the reason notifications exist, and macOS's
+    /// per-app setting is the master switch for both. Durable, in `PersistedPreferences`.
+    /// `AttentionNotifier` (TkzApp) is its sole reader.
+    public var notifyOnDone: Bool
     /// The active colour scheme. The ☾/☀ toggle in the toolbar writes it; `MainWindowController` is
     /// its sole observer, via `ChangeSet.theme`. Durable, in `PersistedPreferences`.
     public var themePreset: Theme.Preset
@@ -70,6 +76,7 @@ public struct AppState: Hashable, Sendable {
         dismissedUpdateVersion: String? = nil,
         showSessionSpend: Bool = true,
         checkOriginPeriodically: Bool = false,
+        notifyOnDone: Bool = true,
         themePreset: Theme.Preset = Theme.default.preset,
         update: UpdateState = UpdateState()
     ) {
@@ -87,6 +94,7 @@ public struct AppState: Hashable, Sendable {
         self.dismissedUpdateVersion = dismissedUpdateVersion
         self.showSessionSpend = showSessionSpend
         self.checkOriginPeriodically = checkOriginPeriodically
+        self.notifyOnDone = notifyOnDone
         self.themePreset = themePreset
         self.update = update
     }

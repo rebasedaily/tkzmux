@@ -21,10 +21,16 @@ private final class FakeNotifications: NotificationPresenting {
         var identifier: String
     }
     var posted: [Posted] = []
+    var onActivate: (@MainActor (String) -> Void)?
+    var onDenied: (@MainActor () -> Void)?
 
-    func present(title: String, body: String, identifier: String) {
-        posted.append(Posted(title: title, body: body, identifier: identifier))
+    func present(_ request: NotificationRequest, delivered: @escaping @MainActor (Bool) -> Void) {
+        posted.append(Posted(title: request.title, body: request.body, identifier: request.identifier))
+        delivered(true)
     }
+
+    func dismiss(identifier: String) {}
+    func requestAuthorization() {}
 }
 
 @MainActor

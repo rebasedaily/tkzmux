@@ -210,6 +210,9 @@ extension AppState {
         session.live?.attention = false
         session.live?.attendedAt = now
         session.live?.isDone = false
+        // The prompt's own words are answered with the prompt: a later descriptor-only flip must
+        // fall back to the generic text, not repeat a line about a tool that is long done.
+        session.live?.lastNotificationMessage = nil
         sessions[id] = session
         rederiveStatus(for: id, now: now)
     }
@@ -367,6 +370,12 @@ extension AppState {
         checkOriginPeriodically = enabled
     }
 
+    /// The "Claude finished" notification switch (2026-09-15). Nothing in the state depends on it:
+    /// the observer that reads it lives in `AttentionNotifier`, which watches `ChangeSet.chrome`.
+    public mutating func setNotifyOnDone(_ enabled: Bool) {
+        notifyOnDone = enabled
+    }
+
     /// The global on/off for token usage/spend (design: enable/disable, all sessions). Turning it
     /// off clears every session's already-summed `live.usage` right away, rather than leaving a
     /// stale figure on screen until the next hook fires; turning it back on needs a fresh read,
@@ -394,6 +403,14 @@ extension AppState {
         if disabled, sessions[id]?.live?.usage != nil {
             updateLive(id) { $0.usage = nil }
         }
+    }
+
+    /// One session's mute (TKZ-74): no macOS notifications for it, badge and tint untouched.
+    /// `nil` when unmuted, not `false` — the one value a file written before this field existed
+    /// can decode to.
+    public mutating func setNotificationsMuted(_ id: SessionID, _ muted: Bool) {
+        guard sessions[id] != nil else { return }
+        sessions[id]?.notificationsMuted = muted ? true : nil
     }
 
     public mutating func setStatuslineOffered(_ offered: Bool) {
@@ -526,10 +543,18 @@ extension AppState {
             case .notification:
                 if let type = event.notificationType {
                     switch type {
-                    case .permissionPrompt, .elicitationDialog, .agentNeedsInput, .idlePrompt:
+                    case .permissionPrompt, .elicitationDialog, .agentNeedsInput:
+                        live.pendingNotification = PendingNotification(type: type, receivedAt: now)
+                        // Claude's own line for the banner ("Claude needs your permission to use
+                        // Bash"). Only the three prompts that become NEEDS YOU keep it.
+                        if let message = event.message, !message.isEmpty {
+                            live.lastNotificationMessage = message
+                        }
+                    case .idlePrompt:
                         live.pendingNotification = PendingNotification(type: type, receivedAt: now)
                     case .elicitationComplete:
                         live.pendingNotification = nil
+                        live.lastNotificationMessage = nil
                     case .unknown:
                         break
                     }

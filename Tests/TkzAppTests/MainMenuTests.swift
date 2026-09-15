@@ -246,6 +246,7 @@ struct MainMenuTests {
                        .jumpToNeedsYou, .nextSession, .previousSession, .closeTerminal,
                        .renameSession, .copyLastMessage, .showFirstPrompt, .showChanges,
                        .rebaseOntoBase, .toggleOriginCheck,
+                       .toggleDoneNotification,
                        .removeShellIntegration,
                        .openFolder,
                        .statusLineIntegration, .resumeSession, .resumeAllInGroup,
@@ -273,6 +274,14 @@ struct MainMenuTests {
         #expect(dispatcher.checkmark(for: .toggleSessionSpend) == true)
         harness.mutate { $0.setShowSessionSpend(false) }
         #expect(dispatcher.checkmark(for: .toggleSessionSpend) == false)
+
+        // The "Claude finished" switch (TKZ-74): a checkmark, on by default, follows the store,
+        // and the menu command flips it.
+        #expect(dispatcher.checkmark(for: .toggleDoneNotification) == true)
+        dispatcher.perform(.toggleDoneNotification)
+        harness.store.flush()
+        #expect(harness.store.state.notifyOnDone == false)
+        #expect(dispatcher.checkmark(for: .toggleDoneNotification) == false)
         let spendItem = MainMenu.commandItems(in: MainMenu.build(dispatcher: dispatcher))[.toggleSessionSpend]!
         _ = dispatcher.validateMenuItem(spendItem)
         #expect(spendItem.state == .off)

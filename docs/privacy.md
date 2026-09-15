@@ -160,8 +160,19 @@ every path; its `settings-merge` mode is the exception — that one prints the m
 document for the shim to pass on, and exits 1 without printing anything if your settings file cannot
 be parsed, in which case the shim `exec`s `claude` untouched.
 
-**Other system surfaces.** The app posts macOS user notifications when a session needs you, so macOS
-will ask for notification permission (`Sources/TkzApp/SessionEventHandler.swift`). It writes to the
+**Other system surfaces.** The app posts macOS user notifications, with the system's notification
+sound, when a session flips to **NEEDS YOU** for a permission prompt, a question or an agent-input
+request, and when Claude finishes a turn in a session you are not looking at
+(`Sources/TkzApp/AttentionNotifier.swift`, `Sources/TkzApp/SessionEventHandler.swift`). macOS asks
+for notification permission once at launch, and its per-app setting is the master switch; the
+"finished" banner also has a checkmark switch in the app menu, on by default. A
+NEEDS YOU banner shows the session's title and Claude Code's own one-line `message` from its
+`Notification` hook — which names the tool it wants to run, e.g. "Claude needs your permission to
+use Bash"; a finished banner shows the title and the first line of Claude's reply. That text is
+visible in Notification Center and, per your macOS settings, on the lock screen. Nothing else from
+the conversation is put in a notification, and every banner is taken back as soon as you look at the
+session. A session can be muted from its row's context menu (*Mute Notifications*), which is
+remembered in `state.json`. The app plays no sound of its own. It writes to the
 unified log under the subsystem `se.tkz.tkzmux` — one line per session launch carrying the working
 directory, `CLAUDE_CONFIG_DIR`, any extra environment and the command, all marked `privacy: .public`
 so they are readable in Console.app like any other app's log

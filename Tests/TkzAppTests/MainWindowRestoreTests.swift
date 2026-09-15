@@ -158,9 +158,10 @@ struct MainWindowRestoreTests {
         #expect(item(restored, MainWindowController.ContextItemID.rename) != nil)
         let spendToggle = item(restored, MainWindowController.ContextItemID.toggleSpendTracking)
         #expect(spendToggle?.title == "Hide Spend for This Session")
+        #expect(item(restored, MainWindowController.ContextItemID.toggleMute)?.title == "Mute Notifications")
         #expect(
-            restored.items.count == 8,
-            "Resume, Rename, separator, Remove, Hide Spend, separator, Group color, Default account")
+            restored.items.count == 9,
+            "Resume, Rename, separator, Remove, Hide Spend, Mute, separator, Group color, Default account")
 
         // ids[0]: a live shell, still resumable (no Claude bound).
         let live = try #require(harness.controller.sidebar.contextMenu(forSession: ids[0]))

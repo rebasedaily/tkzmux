@@ -64,6 +64,7 @@ public enum SidebarRowAdapter {
             accountTooltip: accountTooltip(for: session, in: state),
             accountColor: SidebarSessionRowModel.accountChipColor(forKey: session.accountKey),
             needsAttention: session.needsAttention,
+            isMuted: session.notificationsMuted == true,
             isSelected: state.selection == session.id,
             groupColor: state.groups[session.groupID]?.color,
             memoryBadge: memoryBadge(for: session),

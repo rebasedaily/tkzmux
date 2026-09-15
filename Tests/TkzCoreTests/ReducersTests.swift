@@ -421,6 +421,24 @@ import Testing
         #expect(state.sessions[session.id]?.spendTrackingDisabled == nil)
     }
 
+    @Test func setNotificationsMutedTogglesOneSessionBetweenTrueAndNil() {
+        var state = AppState()
+        let group = state.addGroup(name: "G", repoRoot: "/repo")
+        let session = state.createSession(groupID: group.id, cwd: "/repo")
+        let other = state.createSession(groupID: group.id, cwd: "/repo")
+        #expect(state.sessions[session.id]?.notificationsMuted == nil)
+
+        state.setNotificationsMuted(session.id, true)
+        #expect(state.sessions[session.id]?.notificationsMuted == true)
+        #expect(state.sessions[other.id]?.notificationsMuted == nil)
+        #expect(state.sessions[session.id]?.live == nil, "no live state fabricated")
+
+        // Unmuting clears the flag back to `nil`, not `false`, like the spend opt-out.
+        state.setNotificationsMuted(session.id, false)
+        #expect(state.sessions[session.id]?.notificationsMuted == nil)
+        state.setNotificationsMuted(SessionID.generate(), true)  // unknown id: no-op
+    }
+
     @Test func togglingTheThemeFlipsBetweenDarkAndLight() {
         var state = AppState()
         #expect(Theme.preset(state.themePreset).isDark)
@@ -658,6 +676,32 @@ import Testing
         state.updateLive(id) { $0.pendingNotification = PendingNotification(type: .elicitationDialog, receivedAt: now) }
         state.applyHook(.init(kind: .notification, notificationType: .elicitationComplete), to: id, now: now)
         #expect(state.sessions[id]?.live?.pendingNotification == nil)
+    }
+
+    /// TKZ-74: the banner's body is Claude's own line, kept only for the three prompts that become
+    /// NEEDS YOU, and gone once the prompt is answered or the row attended.
+    @Test func notificationKeepsClaudesMessageForBlockedPromptsOnly() {
+        var (state, id) = makeState()
+        state.applyHook(
+            .init(kind: .notification, notificationType: .permissionPrompt, message: "Claude needs your permission to use Bash"),
+            to: id, now: now)
+        #expect(state.sessions[id]?.live?.lastNotificationMessage == "Claude needs your permission to use Bash")
+
+        // A prompt without a message keeps the previous line rather than blanking it.
+        state.applyHook(.init(kind: .notification, notificationType: .elicitationDialog, message: ""), to: id, now: now)
+        #expect(state.sessions[id]?.live?.lastNotificationMessage == "Claude needs your permission to use Bash")
+
+        state.applyHook(.init(kind: .notification, notificationType: .elicitationComplete), to: id, now: now)
+        #expect(state.sessions[id]?.live?.lastNotificationMessage == nil)
+
+        // An idle prompt is not a blocked prompt: its message is not the banner's.
+        state.applyHook(.init(kind: .notification, notificationType: .idlePrompt, message: "Claude is waiting for your input"), to: id, now: now)
+        #expect(state.sessions[id]?.live?.lastNotificationMessage == nil)
+
+        state.applyHook(.init(kind: .notification, notificationType: .agentNeedsInput, message: "Agent needs input"), to: id, now: now)
+        #expect(state.sessions[id]?.live?.lastNotificationMessage == "Agent needs input")
+        state.markAttended(id, now: now)
+        #expect(state.sessions[id]?.live?.lastNotificationMessage == nil)
     }
 
     @Test func unknownNotificationIsIgnored() {

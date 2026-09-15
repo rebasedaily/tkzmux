@@ -32,6 +32,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     private var autosaver: StateAutosaver?
     private var claude: ClaudeIntegration?
     private var git: GitIntegration?
+    private var attention: AttentionNotifier?
     private var update: UpdateIntegration?
     private let logger = Logger(subsystem: "se.tkz.tkzmux", category: "app")
 
@@ -112,6 +113,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 let gitIntegration = GitIntegration(store: store)
                 controller.git = gitIntegration
                 git = gitIntegration
+                // TKZ-74: the NEEDS YOU banner + ping. After the window, so the permission dialog
+                // it may raise lands on a visible app; after `claude`, whose hooks make the flips.
+                let notifier = AttentionNotifier(store: store)
+                controller.attention = notifier
+                attention = notifier
                 // TKZ-50: the sidebar's update card. Release builds only (a dev build checks
                 // when `TKZMUX_UPDATE_URL` points it at a feed); the first check is 15 s out.
                 if UpdateIntegration.shouldRun() {

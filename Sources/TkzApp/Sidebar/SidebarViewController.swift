@@ -838,14 +838,21 @@ public final class SidebarViewController: NSViewController {
     @discardableResult
     public func selectFirstSessionNeedingAttention() -> SessionID? {
         guard let id = SidebarRowAdapter.firstSessionNeedingAttention(in: store.state) else { return nil }
-        let groupID = store.state.sessions[id]?.groupID
+        reveal(id)
+        return id
+    }
+
+    /// Selects a row, expanding its group first if it is collapsed — both in one mutation, so the
+    /// outline sees one change set with `groups` before `selection`. ⇧⌘U and a clicked NEEDS YOU
+    /// banner (TKZ-74) both land here.
+    public func reveal(_ id: SessionID) {
+        guard let groupID = store.state.sessions[id]?.groupID else { return }
         store.update { state in
-            if let groupID, state.groups[groupID]?.isCollapsed == true {
+            if state.groups[groupID]?.isCollapsed == true {
                 state.setGroupCollapsed(groupID, false)
             }
             state.select(id)
         }
-        return id
     }
 
     /// ↑/↓, clamped over the visible rows. `AppState.selectAdjacentSession(offset:)` is the wrapping

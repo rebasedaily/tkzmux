@@ -121,6 +121,9 @@ public final class SessionRowView: NSTableCellView {
     /// no-colour-configured fallback): this is information, not a warning, so it must not compete
     /// with the amber badges for attention.
     private lazy var spendBadge = SidebarBadgeLayer(font: badgeFont)
+    /// "This row posts no banners" (TKZ-74), on the title line left of the spend figure. Neutral
+    /// like spend, for the same reason: a reminder of a choice, not a warning.
+    private lazy var mutedBadge = SidebarBadgeLayer(font: badgeFont)
     private lazy var needsYouBadge = SidebarBadgeLayer(font: badgeFont)
     private lazy var accountChip = SidebarBadgeLayer(font: badgeFont)
 
@@ -163,6 +166,7 @@ public final class SessionRowView: NSTableCellView {
     private var wtBadgeWidth: CGFloat = 0
     private var memoryBadgeWidth: CGFloat = 0
     private var spendBadgeWidth: CGFloat = 0
+    private var mutedBadgeWidth: CGFloat = 0
     private var needsYouBadgeWidth: CGFloat = 0
     private var accountChipWidth: CGFloat = 0
     /// What ``refreshAccountTooltip()`` last registered, so it can skip the churn.
@@ -185,6 +189,7 @@ public final class SessionRowView: NSTableCellView {
         root.addSublayer(wtBadge)
         root.addSublayer(memoryBadge)
         root.addSublayer(spendBadge)
+        root.addSublayer(mutedBadge)
         root.addSublayer(needsYouBadge)
         root.addSublayer(accountChip)
         root.addSublayer(statusDot)
@@ -248,6 +253,7 @@ public final class SessionRowView: NSTableCellView {
         wtBadge.isHidden = true
         memoryBadge.isHidden = true
         spendBadge.isHidden = true
+        mutedBadge.isHidden = true
         needsYouBadge.isHidden = true
         accountChip.isHidden = true
         removeAllToolTips()
@@ -386,6 +392,18 @@ public final class SessionRowView: NSTableCellView {
             spendBadgeWidth = 0
         }
 
+        mutedBadge.isHidden = !model.isMuted
+        if model.isMuted {
+            let tint = theme.foregroundMuted
+            mutedBadgeWidth = mutedBadge.configure(
+                text: "MUTED",
+                foreground: tint,
+                background: RGB(r: tint.r, g: tint.g, b: tint.b, a: 0.18)
+            )
+        } else {
+            mutedBadgeWidth = 0
+        }
+
         needsYouBadge.isHidden = !model.needsAttention
         if model.needsAttention {
             needsYouBadgeWidth = needsYouBadge.configure(
@@ -426,6 +444,7 @@ public final class SessionRowView: NSTableCellView {
     var memoryBadgeLayer: CALayer { memoryBadge }
     var spendBadgeLayer: CALayer { spendBadge }
     var needsYouBadgeLayer: CALayer { needsYouBadge }
+    var mutedBadgeLayer: CALayer { mutedBadge }
     var accountChipLayer: CALayer { accountChip }
     var selectionBackgroundLayer: CALayer { selectionLayer }
     var colourEdgeLayer: CALayer { edgeLayer }
@@ -542,6 +561,17 @@ public final class SessionRowView: NSTableCellView {
                 x: x,
                 y: titleY + (Self.titleLineHeight - badgeH) / 2,
                 width: spendBadgeWidth,
+                height: badgeH
+            )
+            titleRight = x - Self.badgeGap
+        }
+        // MUTED goes left of both: the least urgent thing on the line, furthest from the edge.
+        if !mutedBadge.isHidden {
+            let x = titleRight - mutedBadgeWidth
+            mutedBadge.frame = CGRect(
+                x: x,
+                y: titleY + (Self.titleLineHeight - badgeH) / 2,
+                width: mutedBadgeWidth,
                 height: badgeH
             )
             titleRight = x - Self.badgeGap

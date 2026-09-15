@@ -1765,6 +1765,26 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
+    /// The NEEDS YOU banner + ping (TKZ-74), once `AppDelegate` has built it. The window lends it
+    /// the "is the user looking at this row" check, and takes the banner click back as a reveal.
+    public var attention: AttentionNotifier? {
+        didSet {
+            guard let attention else { return }
+            attention.isSessionAttended = { [weak self] id in self?.isSessionAttended(id) ?? false }
+            attention.onActivate = { [weak self] id in
+                guard let self else { return }
+                self.sidebar.reveal(id)
+                self.showWindow()
+            }
+            // Once per process: the alternative is a switch that is on and an app that is silent.
+            attention.onDenied = { [weak self] in
+                self?.showNotice(
+                    "Notifications are off for tkzmux in System Settings › Notifications",
+                    for: .seconds(8))
+            }
+        }
+    }
+
     /// The update-card coordinator (TKZ-50), once `AppDelegate` has built it — only for a release
     /// build, or a dev build with `TKZMUX_UPDATE_URL`. The sidebar's card links route here, and
     /// "Restart to update" comes back as `restartForUpdate(installed:)`.
@@ -2692,6 +2712,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         store.update { $0.setCheckOriginPeriodically(!$0.checkOriginPeriodically) }
     }
 
+    /// The "Claude finished" banner switch (TKZ-74). `AttentionNotifier` reads it back through
+    /// `ChangeSet.chrome`; off takes the finished banners back.
+    func toggleDoneNotification() {
+        store.update { $0.setNotifyOnDone(!$0.notifyOnDone) }
+    }
+
     // MARK: - Theme
 
     /// Flips to the current preset's light/dark counterpart. The store is the only writer; the
@@ -2864,6 +2890,14 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             action: #selector(contextToggleSpendTracking(_:)), id: id.rawValue)
         spendToggle.identifier = ContextItemID.toggleSpendTracking
         menu.addItem(spendToggle)
+
+        // Per-session mute (TKZ-74): no banners for this row, the badge and tint stay.
+        let muted = session.notificationsMuted == true
+        let muteToggle = contextItem(
+            muted ? "Unmute Notifications" : "Mute Notifications",
+            action: #selector(contextToggleMute(_:)), id: id.rawValue)
+        muteToggle.identifier = ContextItemID.toggleMute
+        menu.addItem(muteToggle)
 
         // Only offered when there is actually something to kill. Nothing in the system reclaims a
         // stalled process's memory — jetsam will not kill it — so when a build or test under this
@@ -3084,6 +3118,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         public static let remove = NSUserInterfaceItemIdentifier("tkzmux.context.remove")
         public static let killProcessTree = NSUserInterfaceItemIdentifier("tkzmux.context.killProcessTree")
         public static let toggleSpendTracking = NSUserInterfaceItemIdentifier("tkzmux.context.toggleSpendTracking")
+        public static let toggleMute = NSUserInterfaceItemIdentifier("tkzmux.context.toggleMute")
         public static let newSession = NSUserInterfaceItemIdentifier("tkzmux.context.newSession")
         public static let resumeAll = NSUserInterfaceItemIdentifier("tkzmux.context.resumeAll")
         public static let groupRepo = NSUserInterfaceItemIdentifier("tkzmux.context.groupRepo")
@@ -3143,6 +3178,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         store.update { $0.setSpendTrackingDisabled(id, !hidden) }
         // Turning it back on for this one session: no need to re-scan every session, only this one.
         if hidden { claude?.refreshUsageNow(for: id) }
+    }
+
+    @objc private func contextToggleMute(_ sender: Any?) {
+        guard let id = sessionID(from: sender) else { return }
+        let muted = store.state.sessions[id]?.notificationsMuted == true
+        store.update { $0.setNotificationsMuted(id, !muted) }
     }
 
     /// Overrides the kill confirmation: return true to proceed. Tests set it — an alert needs a
@@ -3479,6 +3520,9 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         dispatcher.setCheckmark(.toggleSessionSpend) { [weak self] in self?.store.state.showSessionSpend ?? true }
         dispatcher.setHandler(.toggleOriginCheck) { [weak self] in self?.toggleOriginCheck() }
         dispatcher.setCheckmark(.toggleOriginCheck) { [weak self] in self?.store.state.checkOriginPeriodically ?? false }
+        // TKZ-74: on by default, so the fallback reads `?? true` like the spend switch.
+        dispatcher.setHandler(.toggleDoneNotification) { [weak self] in self?.toggleDoneNotification() }
+        dispatcher.setCheckmark(.toggleDoneNotification) { [weak self] in self?.store.state.notifyOnDone ?? true }
         dispatcher.setHandler(.nextSession) { [weak self] in
             self?.store.update { $0.selectAdjacentSession(offset: 1) }
         }
