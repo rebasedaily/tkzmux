@@ -402,6 +402,35 @@ struct SidebarRowViewTests {
 
     // MARK: Badges
 
+    @Test("MUTED appears only when isMuted, neutral-tinted, left of NEEDS YOU on the title line")
+    func mutedBadgeIsConditional() throws {
+        let plain = Self.sessionRow(SidebarSessionRowModel(title: "s", status: .idle))
+        #expect(plain.mutedBadgeLayer.isHidden)
+
+        let muted = Self.sessionRow(SidebarSessionRowModel(
+            title: "s", status: .waiting, needsAttention: true, isMuted: true, spendBadge: "$0.42"))
+        #expect(!muted.mutedBadgeLayer.isHidden)
+        #expect(!muted.needsYouBadgeLayer.isHidden, "muting never touches the badge")
+        var tint = Theme.default.foregroundMuted
+        tint.a = 0.18
+        #expect(Self.approxEqual(
+            Self.components(muted.mutedBadgeLayer.backgroundColor), Self.components(tint.cgColor)))
+        #expect(muted.mutedBadgeLayer.frame.width > 0)
+        #expect(muted.mutedBadgeLayer.frame.maxX < muted.spendBadgeLayer.frame.minX)
+        #expect(muted.spendBadgeLayer.frame.maxX < muted.needsYouBadgeLayer.frame.minX)
+        #expect(muted.mutedBadgeLayer.frame.minY == muted.needsYouBadgeLayer.frame.minY)
+        #expect(muted.titleTextLayer.frame.maxX <= muted.mutedBadgeLayer.frame.minX)
+        #expect(muted.mutedBadgeLayer.frame.minX >= 0)
+
+        // The adapter reads it off the session's flag.
+        var state = AppState()
+        let group = state.addGroup(name: "g")
+        let session = state.createSession(groupID: group.id, cwd: "/tmp/s")
+        #expect(SidebarRowAdapter.sessionModel(state.sessions[session.id]!, in: state).isMuted == false)
+        state.setNotificationsMuted(session.id, true)
+        #expect(SidebarRowAdapter.sessionModel(state.sessions[session.id]!, in: state).isMuted == true)
+    }
+
     @Test("NEEDS YOU appears only when needsAttention; WT only when isWorktree")
     func badgesAreConditional() throws {
         for needs in [false, true] {

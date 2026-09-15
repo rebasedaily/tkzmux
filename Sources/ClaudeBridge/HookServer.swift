@@ -272,6 +272,9 @@ public final class HookServer: Sendable {
         let claudeSessionId = payload["session_id"] as? String
         let notificationTypeRaw = payload["notification_type"] as? String
         let lastAssistantMessageFull = payload["last_assistant_message"] as? String
+        // `Notification.message` — Claude's own one-liner ("Claude needs your permission to use
+        // Bash"), the text the NEEDS YOU banner shows. Capped like the Stop message.
+        let message = payload["message"] as? String
         let source = payload["source"] as? String
         let reason = payload["reason"] as? String
         let cwd = payload["cwd"] as? String
@@ -285,6 +288,7 @@ public final class HookServer: Sendable {
             claudeSessionId: claudeSessionId,
             notificationType: notificationTypeRaw.map(HookEvent.NotificationType.init(raw:)),
             lastAssistantMessage: lastAssistantMessageFull.map { prefixUTF8($0, maxBytes: 4096) },
+            message: message.map { prefixUTF8($0, maxBytes: 1024) },
             source: source,
             reason: reason,
             pid: nil,

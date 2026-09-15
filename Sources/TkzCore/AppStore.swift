@@ -56,8 +56,9 @@ public struct ChangeSet: Hashable, Sendable {
     /// `AppState.usage` or `AppState.accounts` differ.
     public var usage: Bool
     /// Window chrome and settings that belong to no row: `sidebarVisible`, `sidebarWidth`,
-    /// `windowFrame`, `shortcuts`, and the update card's `update` /
-    /// `dismissedUpdateVersion` (TKZ-50). The sidebar's update card listens to this; the outline
+    /// `windowFrame`, `shortcuts`, the update card's `update` /
+    /// `dismissedUpdateVersion` (TKZ-50), and the "Claude finished" notification switch (TKZ-74).
+    /// The sidebar's update card and `AttentionNotifier` listen to this; the outline
     /// rows ignore it. `StateAutosaver`
     /// deliberately does *not*:
     /// a durable change can arrive in any bucket, and `sessions` carries mostly non-durable ones,
@@ -170,6 +171,7 @@ public struct ChangeSet: Hashable, Sendable {
             || old.shortcuts != new.shortcuts
             || old.autoResumeOnLaunch != new.autoResumeOnLaunch
             || old.checkOriginPeriodically != new.checkOriginPeriodically
+            || old.notifyOnDone != new.notifyOnDone
             || old.statuslineOffered != new.statuslineOffered
             || old.dismissedUpdateVersion != new.dismissedUpdateVersion
             || old.update != new.update

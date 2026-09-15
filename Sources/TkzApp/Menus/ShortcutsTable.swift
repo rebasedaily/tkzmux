@@ -81,6 +81,10 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     /// No key: fetch every tracked repo's base branch every 5 min so the `⤿ 7 behind main` chip stays
     /// honest, shown with a checkmark. Off by default — it is background network activity.
     public static let toggleOriginCheck = ShortcutAction("toggleOriginCheck")
+    /// No key: post a macOS notification when Claude finishes a turn in a row the user is not
+    /// looking at. Shown with a checkmark, on by default (TKZ-74). The NEEDS YOU banner has no
+    /// switch here — macOS's per-app notification setting is the master switch for both.
+    public static let toggleDoneNotification = ShortcutAction("toggleDoneNotification")
     /// No key: flip between the dark preset and its light twin — the ☾/☀ segment's command form.
     /// No checkmark: this is a flip between two named appearances, not a boolean that is on or off.
     public static let toggleTheme = ShortcutAction("toggleTheme")
@@ -189,7 +193,8 @@ public enum ShortcutsTable {
             .openFolder, .reloadConfig, .nextSession, .previousSession, .copyLastMessage,
             .showFirstPrompt, .showChanges, .rebaseOntoBase, .removeShellIntegration, .statusLineIntegration,
             .resumeSession, .resumeAllInGroup,
-            .toggleAutoResume, .toggleSessionSpend, .toggleOriginCheck, .toggleTheme,
+            .toggleAutoResume, .toggleSessionSpend, .toggleOriginCheck,
+            .toggleDoneNotification, .toggleTheme,
             .newTerminal, .splitVertically, .splitHorizontally,
             .focusPaneLeft, .focusPaneRight, .focusPaneUp, .focusPaneDown,
             .equalizeSplits, .zoomPane, .previousTab, .nextTab,
@@ -263,6 +268,7 @@ public enum ShortcutsTable {
         case .toggleAutoResume: "Auto-resume Sessions on Launch"
         case .toggleSessionSpend: "Show Token Usage & Spend"
         case .toggleOriginCheck: "Check Origin Periodically"
+        case .toggleDoneNotification: "Notify When Claude Finishes"
         // Static on purpose: `MainMenuTests` asserts the menu item's title equals this, so a
         // state-dependent "Switch to Light…" would fail on every toggle.
         case .toggleTheme: "Toggle Light / Dark Theme"

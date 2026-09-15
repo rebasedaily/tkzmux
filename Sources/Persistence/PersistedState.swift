@@ -80,6 +80,10 @@ public struct PersistedPreferences: Hashable, Sendable, Codable {
     /// The periodic base-branch fetch (2026-09-13). Absent in older files ⇒ off, like the other
     /// switches: it is background network activity and must be a choice.
     public var checkOriginPeriodically: Bool
+    /// The "Claude finished" notification switch (2026-09-15). Absent in older files ⇒ **on**,
+    /// like `showSessionSpend`: a file written before the switch existed must not silently turn
+    /// it off.
+    public var notifyOnDone: Bool
 
     public init(
         autoResumeOnLaunch: Bool = false,
@@ -87,7 +91,8 @@ public struct PersistedPreferences: Hashable, Sendable, Codable {
         dismissedUpdateVersion: String? = nil,
         themePreset: String? = nil,
         showSessionSpend: Bool = true,
-        checkOriginPeriodically: Bool = false
+        checkOriginPeriodically: Bool = false,
+        notifyOnDone: Bool = true
     ) {
         self.autoResumeOnLaunch = autoResumeOnLaunch
         self.statuslineOffered = statuslineOffered
@@ -95,11 +100,12 @@ public struct PersistedPreferences: Hashable, Sendable, Codable {
         self.themePreset = themePreset
         self.showSessionSpend = showSessionSpend
         self.checkOriginPeriodically = checkOriginPeriodically
+        self.notifyOnDone = notifyOnDone
     }
 
     private enum CodingKeys: String, CodingKey {
         case autoResumeOnLaunch, statuslineOffered, dismissedUpdateVersion, themePreset
-        case showSessionSpend, checkOriginPeriodically
+        case showSessionSpend, checkOriginPeriodically, notifyOnDone
     }
 
     public init(from decoder: any Decoder) throws {
@@ -110,6 +116,7 @@ public struct PersistedPreferences: Hashable, Sendable, Codable {
         themePreset = try c.decodeIfPresent(String.self, forKey: .themePreset)
         showSessionSpend = try c.decodeIfPresent(Bool.self, forKey: .showSessionSpend) ?? true
         checkOriginPeriodically = try c.decodeIfPresent(Bool.self, forKey: .checkOriginPeriodically) ?? false
+        notifyOnDone = try c.decodeIfPresent(Bool.self, forKey: .notifyOnDone) ?? true
     }
 }
 
@@ -201,7 +208,8 @@ public struct PersistedState: Hashable, Sendable, Codable {
                 dismissedUpdateVersion: state.dismissedUpdateVersion,
                 themePreset: state.themePreset.rawValue,
                 showSessionSpend: state.showSessionSpend,
-                checkOriginPeriodically: state.checkOriginPeriodically))
+                checkOriginPeriodically: state.checkOriginPeriodically,
+                notifyOnDone: state.notifyOnDone))
     }
 
     // MARK: Restore
@@ -257,6 +265,7 @@ public struct PersistedState: Hashable, Sendable, Codable {
         state.dismissedUpdateVersion = preferences.dismissedUpdateVersion
         state.showSessionSpend = preferences.showSessionSpend
         state.checkOriginPeriodically = preferences.checkOriginPeriodically
+        state.notifyOnDone = preferences.notifyOnDone
         if let raw = preferences.themePreset {
             if let preset = Theme.Preset(rawValue: raw) {
                 state.themePreset = preset

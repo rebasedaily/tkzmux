@@ -187,6 +187,7 @@ public enum MainMenu {
         addCommand(.toggleAutoResume, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.toggleSessionSpend, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.toggleOriginCheck, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
+        addCommand(.toggleDoneNotification, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.statusLineIntegration, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.removeShellIntegration, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         menu.addItem(.separator())

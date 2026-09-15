@@ -178,6 +178,10 @@ public struct Session: Hashable, Sendable, Identifiable {
     /// default; `true` = this session opted out. Never `false` — see
     /// `AppState.setSpendTrackingDisabled(_:_:)`, the only writer.
     public var spendTrackingDisabled: Bool?
+    /// This session posts no macOS notifications (TKZ-74): neither NEEDS YOU nor "finished". The
+    /// badge and the tint are untouched. `nil` = not muted, the default; `true` = muted. Never
+    /// `false` — see `AppState.setNotificationsMuted(_:_:)`, the only writer.
+    public var notificationsMuted: Bool?
 
     /// The session's tabs, in strip order. Never empty: `closePane`/`closeTab` refuse to empty a
     /// row, and `normalizeLayout` re-seeds a file that says otherwise.
@@ -202,6 +206,7 @@ public struct Session: Hashable, Sendable, Identifiable {
         createdAt: Date = Date(),
         lastActiveAt: Date = Date(),
         spendTrackingDisabled: Bool? = nil,
+        notificationsMuted: Bool? = nil,
         tabs: [Tab]? = nil,
         activeTab: TabID? = nil,
         live: LiveSessionState? = nil
@@ -219,6 +224,7 @@ public struct Session: Hashable, Sendable, Identifiable {
         self.createdAt = createdAt
         self.lastActiveAt = lastActiveAt
         self.spendTrackingDisabled = spendTrackingDisabled
+        self.notificationsMuted = notificationsMuted
         // A default argument cannot reference another parameter, so the single-leaf seed is built
         // here. Its terminal and tab ids are the session's own uuid — the same invariant
         // `Migrations.liftV1ToV2` gives every row it lifts, which is what lets `restoreAll` map a
@@ -400,6 +406,7 @@ extension Session: Codable {
     private enum CodingKeys: String, CodingKey {
         case id, groupID, order, title, cwd, repoRoot, worktreePath, isWorktree
         case accountKey, claudeSessionId, createdAt, lastActiveAt, spendTrackingDisabled
+        case notificationsMuted
         case tabs, activeTab
     }
 }
@@ -423,6 +430,10 @@ public struct LiveSessionState: Hashable, Sendable {
     public var attention: Bool
     /// Up to 4 KiB of the last `Stop` hook's `last_assistant_message`.
     public var lastStopMessage: String?
+    /// Claude's own one-liner from the last permission / elicitation / agent-input `Notification`
+    /// hook ("Claude needs your permission to use Bash") — the NEEDS YOU banner's body. Cleared
+    /// when the prompt is answered or the row is attended (TKZ-74).
+    public var lastNotificationMessage: String?
     public var lastStopAt: Date?
     /// The most recent hook frame received for this session.
     public var lastHook: HookEvent?
@@ -493,6 +504,7 @@ public struct LiveSessionState: Hashable, Sendable {
         status: SessionStatus = .idle,
         attention: Bool = false,
         lastStopMessage: String? = nil,
+        lastNotificationMessage: String? = nil,
         lastStopAt: Date? = nil,
         lastHook: HookEvent? = nil,
         git: GitSummary? = nil,
@@ -518,6 +530,7 @@ public struct LiveSessionState: Hashable, Sendable {
         self.status = status
         self.attention = attention
         self.lastStopMessage = lastStopMessage
+        self.lastNotificationMessage = lastNotificationMessage
         self.lastStopAt = lastStopAt
         self.lastHook = lastHook
         self.git = git
@@ -1311,6 +1324,8 @@ public struct HookEvent: Hashable, Sendable, Codable {
     public var notificationType: NotificationType?
     /// Up to 4 KiB of `Stop.last_assistant_message`.
     public var lastAssistantMessage: String?
+    /// `Notification.message` — Claude's own one-liner for the prompt, capped at 1 KiB (TKZ-74).
+    public var message: String?
     /// `SessionStart.source`.
     public var source: String?
     /// `SessionEnd.reason` — `clear` and `resume` do **not** mean the session exited.
@@ -1324,6 +1339,7 @@ public struct HookEvent: Hashable, Sendable, Codable {
         claudeSessionId: String? = nil,
         notificationType: NotificationType? = nil,
         lastAssistantMessage: String? = nil,
+        message: String? = nil,
         source: String? = nil,
         reason: String? = nil,
         pid: pid_t? = nil,
@@ -1334,6 +1350,7 @@ public struct HookEvent: Hashable, Sendable, Codable {
         self.claudeSessionId = claudeSessionId
         self.notificationType = notificationType
         self.lastAssistantMessage = lastAssistantMessage
+        self.message = message
         self.source = source
         self.reason = reason
         self.pid = pid

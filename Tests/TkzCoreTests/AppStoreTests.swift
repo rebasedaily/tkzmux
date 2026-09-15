@@ -246,6 +246,20 @@ import Testing
         #expect(change.structure == false)
     }
 
+    /// The "Claude finished" switch (TKZ-74) belongs to no row: `chrome`, like the origin-check
+    /// switch, so `AttentionNotifier` sees it without any row reloading.
+    @Test func doneNotificationSwitchIsChrome() {
+        let probe = Probe()
+        let store = probe.store
+        #expect(store.state.notifyOnDone)
+
+        store.update { $0.setNotifyOnDone(false) }
+        store.flush()
+        #expect(probe.last.chrome)
+        #expect(probe.last.sessions.isEmpty)
+        #expect(probe.last.theme == false)
+    }
+
     /// The theme preset gets its own bucket rather than a corner of `chrome`: `chrome` fires on
     /// every window-frame nudge and sidebar-divider settle, and reacting to this one re-tints every
     /// row, every pane and every live terminal.

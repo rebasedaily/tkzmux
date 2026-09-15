@@ -85,6 +85,11 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
     /// seen. Drives the amber `NEEDS YOU` badge, and nothing else.
     public var needsAttention: Bool
 
+    /// `true` when the session's notifications are muted from its context menu (TKZ-74). Drives
+    /// the neutral `MUTED` pill on the title line, and nothing else: the badge and the dot still
+    /// say what they say, only the banners are off.
+    public var isMuted: Bool
+
     /// `true` for the outline view's selected row. The view paints its own selection background
     /// (`Theme.selection`) rather than relying on `NSOutlineView`'s, because the design's selection
     /// is an inset rounded rect, not a full-bleed system highlight.
@@ -119,6 +124,7 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
         accountTooltip: String? = nil,
         accountColor: RGB? = nil,
         needsAttention: Bool = false,
+        isMuted: Bool = false,
         isSelected: Bool = false,
         groupColor: RGB? = nil,
         memoryBadge: String? = nil,
@@ -133,6 +139,7 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
         self.accountTooltip = accountTooltip
         self.accountColor = accountColor
         self.needsAttention = needsAttention
+        self.isMuted = isMuted
         self.isSelected = isSelected
         self.groupColor = groupColor
         self.memoryBadge = memoryBadge

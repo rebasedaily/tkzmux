@@ -45,6 +45,10 @@ private func makeState() -> AppState {
     // than coincidentally matching `PersistedPreferences`'s own default.
     state.setShowSessionSpend(false)
     state.setCheckOriginPeriodically(true)
+    // Defaults on (TKZ-74), so off is the value a dropped round trip would fail on.
+    state.setNotifyOnDone(false)
+    // A muted row rides on `Session` itself; the `sessions ==` assertion below covers it.
+    state.setNotificationsMuted(two.id, true)
     // A split and a second tab, so every assertion built on this fixture covers the layout too.
     _ = state.splitPane(two.focusedTerminalID, axis: .vertical, ratio: 0.3)
     _ = state.addTab(to: two.id)
@@ -86,7 +90,24 @@ private func makeState() -> AppState {
         #expect(restored.autoResumeOnLaunch == original.autoResumeOnLaunch)
         #expect(restored.showSessionSpend == original.showSessionSpend)
         #expect(restored.checkOriginPeriodically == original.checkOriginPeriodically)
+        #expect(restored.notifyOnDone == original.notifyOnDone)
     }
+}
+
+@Test func theDoneNotificationSwitchRoundTripsAndDefaultsOn() throws {
+    let data = try StateFile.encode(StateDocument(state: PersistedState(makeState())))
+    var restored = AppState()
+    try StateFile.decode(data).state.apply(to: &restored)
+    #expect(restored.notifyOnDone == false)
+
+    // A preferences block written before the switch existed (TKZ-74) has the key missing;
+    // missing must mean *on*, like `showSessionSpend` and unlike the other switches.
+    var object = try JSONDecoder().decode([String: JSONValue].self, from: data)
+    object["preferences"] = .object(["checkOriginPeriodically": .bool(true)])
+    var fresh = AppState()
+    fresh.setNotifyOnDone(false)
+    try StateFile.decode(JSONEncoder().encode(object)).state.apply(to: &fresh)
+    #expect(fresh.notifyOnDone == true)
 }
 
 @Test func theOriginCheckSwitchRoundTripsAndDefaultsOff() throws {
@@ -125,6 +146,7 @@ private func makeState() -> AppState {
     // A file predating this switch has no key for it either; missing must default to *on*, unlike
     // every other switch in this block, which defaults off.
     #expect(restored.showSessionSpend == true)
+    #expect(restored.notifyOnDone == true)
     #expect(restored.sessions.count == state.sessions.count)
 }
 
