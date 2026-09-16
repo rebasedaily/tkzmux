@@ -1,4 +1,4 @@
-// UpgradeRunnerTests — brew, without brew (TKZ-50).
+// UpgradeRunnerTests — brew, without brew.
 //
 // `UpdateCommandRunning` is a protocol precisely so this file can script every outcome: the fake
 // records what it was asked to run, returns canned results, and can rewrite the temp bundle's

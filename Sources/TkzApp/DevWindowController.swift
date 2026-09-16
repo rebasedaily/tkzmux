@@ -1,12 +1,12 @@
-// DevWindowController — the M1.6 development window (TKZ-12), rebuilt on `TerminalHost` in M1.10
-// (TKZ-16).
+// DevWindowController — the M1.6 development window, rebuilt on `TerminalHost` in M1.10
+//.
 //
 // One window, one `TerminalMetalView`, N login zsh sessions, and a "New session" / "Spawn 30"
 // pair of buttons. It no longer owns the session table: a `TerminalViewHost` does, and this file
 // is a *consumer* of the protocol design.md specifies. That is the point — the seam is proved by
 // something real driving it before M2.2 replaces this window with the sidebar.
 //
-// Input is TKZ-13 (keyboard) + TKZ-14 (mouse), both fully live: a `TerminalInputController` is the
+// Input is M1.7 (keyboard) + M1.8 (mouse), both fully live: a `TerminalInputController` is the
 // view's `inputDelegate`, a `MouseController` is its `mouseHandler`, and both reach the visible
 // session through `TerminalSession`'s input seam. Encoded key bytes and mouse reports come *back*
 // from the session and go out through `TerminalViewHost.writeInput`; paste bytes do not —
@@ -55,10 +55,10 @@ public final class DevWindowController: NSObject, NSWindowDelegate {
     /// The session table, the ptys, the snapshots and the idle compressor.
     public let host: TerminalViewHost
 
-    /// Keyboard, IME and the mouse router (TKZ-13).
+    /// Keyboard, IME and the mouse router.
     public let inputController = TerminalInputController()
 
-    /// Mouse reporting, selection, wheel, OSC 8 links and the clipboard (TKZ-14). Held strongly:
+    /// Mouse reporting, selection, wheel, OSC 8 links and the clipboard. Held strongly:
     /// `inputController.mouseHandler` is weak.
     public let mouseController = MouseController()
 
@@ -128,7 +128,7 @@ public final class DevWindowController: NSObject, NSWindowDelegate {
         window.initialFirstResponder = view
         installTitlebarAccessory()
 
-        // `onGridResize` is installed per pane by `TerminalHost.show` (TKZ-36), not here.
+        // `onGridResize` is installed per pane by `TerminalHost.show`, not here.
         host.onDidShow = { [weak self] ids in self?.didShow(ids.first) }
 
         wireInput()
@@ -139,7 +139,7 @@ public final class DevWindowController: NSObject, NSWindowDelegate {
     /// The dev harness is single-pane by construction: it shows one terminal at a time.
     private var visibleTerminalID: TerminalID? { host.visibleTerminalIDs.first }
 
-    // MARK: - Input (TKZ-13)
+    // MARK: - Input
 
     /// Installs the keyboard and mouse controllers and points their output seams at this window.
     ///

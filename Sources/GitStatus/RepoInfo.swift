@@ -1,4 +1,4 @@
-// RepoInfo — "which repo is this directory in?", answered in one git call (M4.1 / TKZ-26).
+// RepoInfo — "which repo is this directory in?", answered in one git call (M4.1).
 //
 // design.md → *Git integration*: `git -C <cwd> rev-parse --show-toplevel --git-dir --git-common-dir`,
 // `repoRoot = parent(common-dir)`, `isWorktree = realpath(git-dir) != realpath(git-common-dir)`.

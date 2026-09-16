@@ -156,7 +156,16 @@ for target in "${TARGETS[@]}"; do
     overall=1
   else
     wait "$runner"; rc=$?
-    if [ "$rc" -eq 0 ]; then outcome="passed"; else outcome="test failures (exit $rc)"; fi
+    # Exit status 0 is not enough: the main run loop stopping makes Swift's async-main drain
+    # exit(0) mid-run, and everything scheduled after that point silently never runs.
+    # Swift Testing prints one "Test run with N tests ..." line only when the run finished.
+    if [ "$rc" -ne 0 ]; then
+      outcome="test failures (exit $rc)"
+    elif grep -q "Test run with" "$OUT_DIR/$target.log"; then
+      outcome="passed"
+    else
+      outcome="EXITED EARLY (exit 0, no summary line)"; overall=1
+    fi
   fi
 
   printf '%-26s %10s %16s %8s  %s\n' "$target" "$peak" "$biggest" "$((SECONDS - started))" "$outcome"

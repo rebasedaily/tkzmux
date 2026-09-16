@@ -1,4 +1,4 @@
-// The split container: the pane tree, as views (TKZ-36).
+// The split container: the pane tree, as views.
 //
 // One `PaneSplitView` per `.split` node, plain `NSView`s as leaves. Nested `NSSplitView`s rather
 // than a hand-laid container because everything a divider needs — hit testing, the resize cursor,

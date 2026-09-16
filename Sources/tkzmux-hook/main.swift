@@ -1,7 +1,7 @@
 // tkzmux-hook — Claude Code hook relay. Must stay tiny and fast (< 20 ms): `import Darwin` only,
 // no Foundation. Forwards hook JSON to the app over a Unix socket. Every error path exits 0 with
 // empty stdout — except `settings-merge`, whose failures exit non-zero with empty stdout — because
-// this binary must never slow down or break Claude Code when the app isn't running. M3.2 (TKZ-22).
+// this binary must never slow down or break Claude Code when the app isn't running. M3.2.
 import Darwin
 
 // The app may close the connection mid-write (or never accept it); never die to SIGPIPE for that.

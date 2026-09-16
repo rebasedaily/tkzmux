@@ -1,4 +1,4 @@
-// FSEventsWatcher — the trigger half of M4.1 (TKZ-26).
+// FSEventsWatcher — the trigger half of M4.1.
 //
 // design.md → *Git integration*: "one `FSEventStream` per repoRoot (common-dir + session cwds;
 // ignore `.git/objects`, `node_modules`), 300 ms debounce". This type is only the stream: it knows

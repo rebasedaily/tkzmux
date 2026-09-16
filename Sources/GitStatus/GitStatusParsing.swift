@@ -1,4 +1,4 @@
-// GitStatusParsing — the text half of M4.1 (TKZ-26). Pure functions, no processes.
+// GitStatusParsing — the text half of M4.1. Pure functions, no processes.
 //
 // design.md → *Git integration*: a refresh is two git calls, `status --porcelain=v2 --branch -z`
 // and `diff HEAD --shortstat`. Everything that can go wrong in reading them is a parsing bug, so

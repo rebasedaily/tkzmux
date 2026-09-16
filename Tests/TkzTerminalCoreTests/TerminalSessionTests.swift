@@ -1,4 +1,4 @@
-// TerminalSessionTests — the VT bridge (M1.3 / TKZ-9).
+// TerminalSessionTests — the VT bridge (M1.3).
 //
 // These assert the *contract* the rest of the milestone is built on: the byte sequences Claude
 // Code actually emits leave the terminal in the state we expect, query replies come back through
@@ -277,7 +277,7 @@ private final class Counter: @unchecked Sendable {
     #expect(session.scrollbackRows > 2000)
 }
 
-// MARK: - Scroll metrics (TKZ-45)
+// MARK: - Scroll metrics
 //
 // The scroll indicator's whole input. libghostty offers no change notification for scroll state, so
 // these pin the numbers the view's geometry is derived from — and in particular that the alternate

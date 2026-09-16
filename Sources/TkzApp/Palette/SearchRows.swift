@@ -1,4 +1,4 @@
-// SearchRows.swift — the non-session rows of the toolbar's results overlay (TKZ-52, design 2c.6).
+// SearchRows.swift — the non-session rows of the toolbar's results overlay (design 2c.6).
 //
 // `PaletteResult` already covers sessions, groups and commands: they are fuzzy hits over an
 // `AppState` and they all activate the same way. The overlay's other three sections do not fit that

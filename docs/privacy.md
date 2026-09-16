@@ -45,8 +45,8 @@ Plus these, in the background, on repos backing your sessions:
 All of them run with `--no-optional-locks` / `GIT_OPTIONAL_LOCKS=0` so a background refresh cannot
 contend with git commands you run yourself.
 
-And this one, **only if you turn it on** (*Check Origin Periodically* in the app menu, off by
-default):
+And this one, **only if you turn it on** (*Check origin periodically* in Settings (⌘,) › General,
+off by default):
 
 | Command | Why |
 |---|---|
@@ -130,8 +130,9 @@ and it passes straight through for `-p`, `--bare`, subcommands and anything else
 recognise. The zsh wrappers also point `HISTFILE` back at your own `~/.zsh_history` so tkzmux shells
 share your history rather than starting a private one. The command a session is opened to run
 (`claude`, `claude -w`, `claude --resume`) is run at the shell's first prompt, after hooks such as
-direnv's have exported their environment, so Claude sees your `.envrc`. *Remove Shell Integration*
-in the app menu deletes `bin/` and the wrapper directories again.
+direnv's have exported their environment, so Claude sees your `.envrc`. *Remove shell integration*
+in Settings (⌘,) › Shell deletes `bin/` and the wrapper directories again, until the next launch
+installs them afresh.
 
 **The status line — the one file tkzmux writes outside its own directory.** Claude Code hands rate
 limits and context usage to the `statusLine` command on stdin and writes them nowhere else, so the
@@ -144,8 +145,8 @@ own JSON parser rather than `JSONSerialization`.
 
 If you already had a status line, it keeps running: the whole original `statusLine` object is saved
 to `statusline/previous-<account>.json` first, and tkzmux runs your command under `/bin/sh -c` with
-the identical stdin bytes and passes its output through unchanged. *Status Line Integration* in the
-app menu puts your original back exactly, and refuses rather than guessing if the saved copy is
+the identical stdin bytes and passes its output through unchanged. *Status line integration* in
+Settings (⌘,) › General puts your original back exactly, and refuses rather than guessing if the saved copy is
 missing or you have rewired `statusLine` yourself since. Two things it does not handle: a `statusLine`
 in a **project** `.claude/settings.json` overrides the user-level one and is not detected, and if you
 delete `~/Library/Application Support/tkzmux` by hand the `statusLine` key is left pointing at a
@@ -165,7 +166,7 @@ sound, when a session flips to **NEEDS YOU** for a permission prompt, a question
 request, and when Claude finishes a turn in a session you are not looking at
 (`Sources/TkzApp/AttentionNotifier.swift`, `Sources/TkzApp/SessionEventHandler.swift`). macOS asks
 for notification permission once at launch, and its per-app setting is the master switch; the
-"finished" banner also has a checkmark switch in the app menu, on by default. A
+"finished" banner also has a switch in Settings (⌘,) › General, on by default. A
 NEEDS YOU banner shows the session's title and Claude Code's own one-line `message` from its
 `Notification` hook — which names the tool it wants to run, e.g. "Claude needs your permission to
 use Bash"; a finished banner shows the title and the first line of Claude's reply. That text is

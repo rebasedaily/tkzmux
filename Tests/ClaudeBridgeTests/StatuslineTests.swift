@@ -1,5 +1,5 @@
 // StatuslineTests — the producer (`tkzmux-hook statusline`) and the settings rewriter, driven as
-// real processes, plus `StatuslineInstaller` against a temp config directory (TKZ-32).
+// real processes, plus `StatuslineInstaller` against a temp config directory.
 //
 // No test here touches the real HOME, `~/.claude`, or the real tkzmux application-support
 // directory: the binary finds its own directory through `TKZMUX_SUPPORT_DIR`, which exists as this

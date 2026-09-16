@@ -1,4 +1,4 @@
-// StatusDerivationTests — TKZ-24 (M3.4). The table in `StatusDerivation.swift` / design.md →
+// StatusDerivationTests — M3.4. The table in `StatusDerivation.swift` / design.md →
 // *Claude integration → Status derivation*, exercised row by row, plus the clearing rules and the
 // "degrades to descriptor-only" claims.
 

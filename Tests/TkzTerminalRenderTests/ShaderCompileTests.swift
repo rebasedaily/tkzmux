@@ -1,4 +1,4 @@
-// ShaderCompileTests — the shader half of M1.5 (TKZ-11), verified without a renderer.
+// ShaderCompileTests — the shader half of M1.5, verified without a renderer.
 //
 // Three things are proven here:
 //   1. Swift's view of TkzShaderTypes.h matches, field for field, the `_Static_assert`s the C and

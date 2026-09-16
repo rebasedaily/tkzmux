@@ -6,7 +6,7 @@ import TkzCore
 @testable import TkzApp
 
 /// The Transcripts section's engine: indexes per open session, and the caps that keep them from
-/// becoming the leak `PerSessionCacheEvictionTests` exists to prevent (TKZ-52).
+/// becoming the leak `PerSessionCacheEvictionTests` exists to prevent.
 @Suite(.serialized)
 struct TranscriptSearchServiceTests {
 

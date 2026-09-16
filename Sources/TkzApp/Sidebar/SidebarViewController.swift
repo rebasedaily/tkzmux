@@ -1,5 +1,5 @@
 // SidebarViewController — the outline view that binds `AppStore` to the sidebar rows
-// (M2.3 / TKZ-19). See docs/design.md → *App architecture → Sidebar* and *Store*.
+// (M2.3). See docs/design.md → *App architecture → Sidebar* and *Store*.
 //
 // The whole reason this type is a hand-written `NSOutlineView` controller instead of a SwiftUI
 // `List` is the last sentence of the Store section: **a Claude status flip on one session must cost
@@ -13,7 +13,7 @@
 //   | `sessions`  | `reloadData(forRowIndexes:)` for exactly the rows named                   |
 //   | `selection` | `selectRowIndexes` + a reload of the two rows whose `isSelected` flipped  |
 //   | `usage`     | chips re-derived only when an account's *label* changed                  |
-//   | `chrome`    | the update card under the list is re-derived (TKZ-50); rows ignore it    |
+//   | `chrome`    | the update card under the list is re-derived; rows ignore it    |
 //
 // `reloadData()` is called exactly once, at load. `SidebarOutlineView` counts every one of these
 // calls so the tests can assert the table above rather than eyeball it.
@@ -217,7 +217,7 @@ final class SidebarOutlineView: NSOutlineView {
 
 /// Root view. Stacks, top to bottom, the fixed-height summary strip (under the toolbar, as
 /// artboard 2c draws it — moved there 2026-09-08), the scroll view, the "Update available" card
-/// when there is one (TKZ-50) and the "＋ New group" footer, and tells the controller when it
+/// when there is one and the "＋ New group" footer, and tells the controller when it
 /// changes window so occlusion notifications can follow. The strip starts at the top safe-area
 /// inset, so with the content extending under the titlebar the strip and the rows still start
 /// below it.
@@ -286,7 +286,7 @@ public final class SidebarViewController: NSViewController {
     /// session, with the same confirmation ⌘W has.
     public var onRemoveSession: (@MainActor (SessionID) -> Void)?
 
-    /// A link on the update card was clicked (TKZ-50). The `✕` is handled here — it is a store
+    /// A link on the update card was clicked. The `✕` is handled here — it is a store
     /// write — but what "Update via Homebrew" or "Restart" *does* belongs to the assembler.
     public var onUpdateAction: (@MainActor (UpdateAction) -> Void)? {
         didSet { notice.onAction = onUpdateAction }
@@ -328,7 +328,7 @@ public final class SidebarViewController: NSViewController {
     /// The scroll view the outline lives in; the split view sets its width constraints.
     public var scrollView: NSScrollView { scroll }
 
-    /// The "Update available" card between the list and the footer (TKZ-50); hidden when there
+    /// The "Update available" card between the list and the footer; hidden when there
     /// is nothing to say.
     public var updateNoticeView: UpdateNoticeView { notice }
 
@@ -365,7 +365,7 @@ public final class SidebarViewController: NSViewController {
     /// thing that can change the answer.
     private var neededDetailWidths: [SessionID: CGFloat?] = [:]
 
-    /// The colour each group's rows were last rendered with (TKZ-48).
+    /// The colour each group's rows were last rendered with.
     ///
     /// `ChangeSet.groups` names a group but not *which* field changed, and since the colour edge now
     /// runs through the group's session rows too, a colour change has to reload them while a rename
@@ -550,7 +550,7 @@ public final class SidebarViewController: NSViewController {
         if change.chrome { applyUpdateNotice() }
     }
 
-    // MARK: Update card (TKZ-50)
+    // MARK: Update card
 
     /// Re-derives the card from the store. Showing or hiding it re-runs the container's layout,
     /// which moves the list; a wording change inside a visible card does not.
@@ -844,7 +844,7 @@ public final class SidebarViewController: NSViewController {
 
     /// Selects a row, expanding its group first if it is collapsed — both in one mutation, so the
     /// outline sees one change set with `groups` before `selection`. ⇧⌘U and a clicked NEEDS YOU
-    /// banner (TKZ-74) both land here.
+    /// banner both land here.
     public func reveal(_ id: SessionID) {
         guard let groupID = store.state.sessions[id]?.groupID else { return }
         store.update { state in

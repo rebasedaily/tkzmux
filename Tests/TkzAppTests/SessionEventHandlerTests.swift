@@ -1,4 +1,4 @@
-// SessionEventHandlerTests — M1.9 (TKZ-15).
+// SessionEventHandlerTests — M1.9.
 //
 // The acceptance criterion `printf '\e]0;hello\a'` → `.title("hello")` is asserted end to end
 // against a real `TerminalSession`: the OSC bytes go through libghostty's parser, out of the

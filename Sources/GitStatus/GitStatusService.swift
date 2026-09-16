@@ -1,4 +1,4 @@
-// GitStatusService — M4.1 (TKZ-26). See docs/design.md → *Git integration*.
+// GitStatusService — M4.1. See docs/design.md → *Git integration*.
 //
 // Owns the whole answer to "what does this session's repo look like right now?": repo detection per
 // directory, an `FSEventStream` per repo root, a debounce/coalesce policy, the two git calls, and
@@ -93,7 +93,7 @@ public final class GitStatusService: Sendable {
         var info: RepoInfo
         var lastPosted: GitSummary?
         /// The paths behind the last posted counts, for the search overlay's "Files changed"
-        /// section (TKZ-52). Kept here rather than in `GitSummary` so it never reaches the store
+        /// section. Kept here rather than in `GitSummary` so it never reaches the store
         /// or the change-set gate; see `PorcelainStatus.paths`.
         var changedPaths: [ChangedPath] = []
         /// When the last *successful* refresh completed — the input to `refreshIfStale`.
@@ -598,7 +598,7 @@ public final class GitStatusService: Sendable {
     /// `git status --porcelain=v2 --branch -z` + `git diff HEAD --shortstat` (+ one `rev-list`
     /// against `base` when there is one and the branch is not it), in `directory` (the session's
     /// own, not the repo root — a worktree has its own status). `nil` only when `status` itself
-    /// failed. Keeps the paths `git status` already printed (TKZ-52).
+    /// failed. Keeps the paths `git status` already printed.
     static func compute(
         directory: String, info: RepoInfo, base: BaseBranch?, gitPath: String
     ) -> (summary: GitSummary, paths: [ChangedPath], baseFailure: BaseFailure?)? {

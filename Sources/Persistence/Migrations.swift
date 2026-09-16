@@ -5,7 +5,7 @@
 // migrated to v2. It also means a migration is written once, against the shape that was actually on
 // disk, rather than against whatever the models look like today.
 //
-// v2 (TKZ-36) gives every session a pane tree; v3 drops the presets feature and the keys it
+// v2 gives every session a pane tree; v3 drops the presets feature and the keys it
 // wrote. The interesting half of this file is still the *refusal*: see
 // `MigrationError.futureVersion`.
 

@@ -1,4 +1,4 @@
-// InstalledVersion — what is on disk at the bundle path *right now* (TKZ-50).
+// InstalledVersion — what is on disk at the bundle path *right now*.
 //
 // After `brew upgrade` the question is "did the bundle actually change?", and neither
 // `Bundle.main.infoDictionary` (read once, frozen — `AppVersion.current` already froze it) nor a

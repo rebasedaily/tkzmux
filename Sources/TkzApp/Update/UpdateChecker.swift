@@ -1,4 +1,4 @@
-// UpdateChecker — "is there a newer tkzmux release?" (design 2c.1, TKZ-50).
+// UpdateChecker — "is there a newer tkzmux release?" (design 2c.1).
 //
 // One GET to GitHub's *latest release* endpoint — the same source the Homebrew cask's `livecheck`
 // reads, so a draft or a prerelease is invisible to both — decoded in the forgiving

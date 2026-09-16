@@ -1,4 +1,4 @@
-// TerminalInputControllerTests — the NSEvent → KeyPress translation, headless (M1.7 / TKZ-13).
+// TerminalInputControllerTests — the NSEvent → KeyPress translation, headless (M1.7).
 //
 // Everything here runs without a window, a pty or a terminal: `NSEvent.keyEvent(with:…)` synthesizes
 // events and `TerminalInputController.keyPress(…)` is a pure function over one. The *encoding* of a
@@ -55,7 +55,7 @@ private let kVK_Return: UInt16 = 0x24
 private let kVK_RightShift: UInt16 = 0x3C
 private let kVK_Shift: UInt16 = 0x38
 
-/// A stand-in for TKZ-14's `MouseController`.
+/// A stand-in for the `MouseController`.
 @MainActor
 private final class StubMouseHandler: TerminalMouseHandling {
     var consume = true

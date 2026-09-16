@@ -1,4 +1,4 @@
-// MainWindowLaunchTests — M2.5 (TKZ-43): the window actually starting a session.
+// MainWindowLaunchTests — M2.5: the window actually starting a session.
 //
 // Everything here runs against `SpyTerminalHost` (see `MainWindowControllerTests`): a real
 // `TerminalViewHost` would spawn shells and write `.ghsnap` files into the developer's

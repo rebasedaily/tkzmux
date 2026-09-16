@@ -1,4 +1,4 @@
-// SidebarViewControllerTests — M2.3 (TKZ-19), the binding half.
+// SidebarViewControllerTests — M2.3, the binding half.
 //
 // `SidebarRowViewTests` proves the rows *draw* correctly from a literal model. This suite proves the
 // controller *drives* them from the store, and it exists almost entirely for one sentence in
@@ -955,7 +955,7 @@ struct SidebarViewControllerTests {
         #expect(SidebarRowAdapter.sessionModel(session, in: state).groupColor == nil)
     }
 
-    @Test("A session row model carries its group's colour, not its own (TKZ-48)")
+    @Test("A session row model carries its group's colour, not its own")
     func sessionModelCarriesTheGroupColour() {
         var state = AppState.fixture
         let groupID = state.orderedGroups[0].id
@@ -1071,7 +1071,7 @@ struct SidebarViewControllerTests {
 }
 
 /// Regression: launching a session creates it and selects it in **one** change set, so the sidebar
-/// sees `structure` and `selection` together. Reported from the app (M2.5 / TKZ-43): after `>_` the
+/// sees `structure` and `selection` together. Reported from the app (M2.5): after `>_` the
 /// sidebar painted two rows as selected.
 @MainActor
 @Suite(.serialized)

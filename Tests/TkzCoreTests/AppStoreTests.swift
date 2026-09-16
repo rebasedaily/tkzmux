@@ -15,7 +15,7 @@ import Testing
 
     // MARK: Diff granularity
 
-    /// TKZ-17 acceptance: a status flip names exactly one session and is **not** structural.
+    /// M2.1 acceptance: a status flip names exactly one session and is **not** structural.
     @Test func statusChangeTouchesOneSessionAndIsNotStructural() {
         let probe = Probe()
         let store = probe.store
@@ -70,7 +70,7 @@ import Testing
         #expect(store.deliveryCount == deliveries + 1)
     }
 
-    // MARK: Layout granularity (TKZ-36)
+    // MARK: Layout granularity
 
     /// Every tree-shape mutation names the session in **both** buckets, and none of them is
     /// structural: the sidebar's rows have not moved, only the split container's shape.
@@ -139,7 +139,7 @@ import Testing
         #expect(probe.last.layout == [created!])
     }
 
-    /// TKZ-17 acceptance: reordering is structural.
+    /// M2.1 acceptance: reordering is structural.
     @Test func reorderingIsStructural() {
         let probe = Probe()
         let store = probe.store
@@ -246,7 +246,7 @@ import Testing
         #expect(change.structure == false)
     }
 
-    /// The "Claude finished" switch (TKZ-74) belongs to no row: `chrome`, like the origin-check
+    /// The "Claude finished" switch belongs to no row: `chrome`, like the origin-check
     /// switch, so `AttentionNotifier` sees it without any row reloading.
     @Test func doneNotificationSwitchIsChrome() {
         let probe = Probe()
@@ -309,7 +309,7 @@ import Testing
 
     // MARK: Coalescing
 
-    /// TKZ-17 acceptance: three updates in one run-loop turn deliver **one** change set,
+    /// M2.1 acceptance: three updates in one run-loop turn deliver **one** change set,
     /// containing the union of all three.
     @Test func threeUpdatesInOneTurnDeliverOneChangeSet() async {
         let probe = Probe()

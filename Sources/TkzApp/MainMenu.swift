@@ -1,4 +1,4 @@
-// MainMenu.swift — the application menu bar, built from `ShortcutsTable` (M2.2 / TKZ-18).
+// MainMenu.swift — the application menu bar, built from `ShortcutsTable` (M2.2).
 //
 // An app built without an `.xcodeproj` and without a MainMenu.nib starts with **no menu bar at
 // all**, and a missing menu bar is not merely cosmetic: `NSApplication` matches ⌘-key equivalents
@@ -24,7 +24,7 @@
 // that **acts**. An action with no handler in the dispatcher gets no item at all, because this menu
 // is not read only by the menu bar: `CheatSheetModel` walks it, and the palette filters on the same
 // `MenuDispatcher.canPerform` set, so a permanently-disabled item here became a dead row in ⇧⌘P and
-// a dead chord on the ⌘-hold card (TKZ-53). A command the user can see is a command that runs.
+// a dead chord on the ⌘-hold card. A command the user can see is a command that runs.
 //
 // The ids stay in `ShortcutsTable` either way — they are the `state.json` override vocabulary — so
 // registering a handler is the whole of restoring an item, here and in both other surfaces.
@@ -42,8 +42,10 @@ import TkzCore
 @MainActor
 public final class MenuDispatcher: NSObject, NSMenuItemValidation {
     private var handlers: [ShortcutAction: () -> Void] = [:]
-    /// Checkmark providers for toggle-style actions ("Auto-resume Sessions on Launch"). Read on
-    /// every validation, so the mark follows the store without any observer of its own.
+    /// Checkmark providers for toggle-style actions. Read on every validation, so the mark
+    /// follows the store without any observer of its own. Nothing registers one since the
+    /// preference toggles moved into the Settings window; the mechanism stays for the
+    /// next boolean command.
     private var checkmarks: [ShortcutAction: () -> Bool] = [:]
 
     /// Options handed to the standard About panel, filled in by `MainMenu.build`.
@@ -182,14 +184,10 @@ public enum MainMenu {
                                  keyEquivalent: "")
         about.target = dispatcher
         menu.addItem(.separator())
+        // The preferences themselves live in the Settings window (design 7a–d); the
+        // menu only opens it. `reloadConfig` is still handlerless and so still absent.
         addCommand(.settings, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         addCommand(.reloadConfig, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
-        addCommand(.toggleAutoResume, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
-        addCommand(.toggleSessionSpend, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
-        addCommand(.toggleOriginCheck, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
-        addCommand(.toggleDoneNotification, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
-        addCommand(.statusLineIntegration, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
-        addCommand(.removeShellIntegration, to: menu, shortcuts: shortcuts, dispatcher: dispatcher)
         menu.addItem(.separator())
 
         let hide = menu.addItem(withTitle: "Hide \(appName)",
@@ -228,7 +226,7 @@ public enum MainMenu {
         return menu
     }
 
-    /// Panes and tabs (TKZ-36). A submenu of its own rather than more rows in View, because these
+    /// Panes and tabs. A submenu of its own rather than more rows in View, because these
     /// are the terminal's verbs, and `MainMenuTests` requires every action to have an item
     /// somewhere — the menu is meant to be an honest inventory of what the app can do.
     private static func terminalMenu(
@@ -315,7 +313,7 @@ public enum MainMenu {
     /// two other surfaces read it back — `CheatSheetModel` walks the built menu, and the palette
     /// filters command rows on the same `canPerform` set. An item that can never fire therefore
     /// showed up three times over as something the user could choose and nothing would happen
-    /// (TKZ-53). Register a handler and the item comes back everywhere at once.
+    ///. Register a handler and the item comes back everywhere at once.
     private static func addCommand(
         _ action: ShortcutAction, to menu: NSMenu,
         shortcuts: [ShortcutAction: Shortcut], dispatcher: MenuDispatcher
@@ -361,7 +359,7 @@ public enum MainMenu {
         return item
     }
 
-    // MARK: About panel (M6.1 / TKZ-37)
+    // MARK: About panel (M6.1)
 
     /// Everything the standard About panel should show, taken from `AppVersion` rather than from
     /// `Info.plist` — see `MenuDispatcher.aboutPanelOptions`. `.applicationVersion` is the

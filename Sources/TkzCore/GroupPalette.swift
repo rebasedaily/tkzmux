@@ -1,4 +1,4 @@
-// TkzCore — the fixed set of colours the sidebar's "Group color" picker offers (TKZ-48).
+// TkzCore — the fixed set of colours the sidebar's "Group color" picker offers.
 //
 // `Group.color` is a free-form `RGB?`, but the picker deliberately offers a small curated set
 // rather than an `NSColorPanel`: the edge is 2.5 pt of solid colour on a sidebar background that

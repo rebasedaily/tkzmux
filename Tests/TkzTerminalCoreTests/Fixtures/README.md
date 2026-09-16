@@ -1,6 +1,6 @@
 # `.tkzrec` fixtures
 
-Recorded with `tkzmux-vtdump record` (M1.3 / TKZ-9) under the **full `TerminalEnvironment`** —
+Recorded with `tkzmux-vtdump record` (M1.3) under the **full `TerminalEnvironment`** —
 `TERM=xterm-ghostty`, `TERM_PROGRAM=ghostty`, `TERM_PROGRAM_VERSION`, `COLORTERM=truecolor` and the
 bundled `TERMINFO` — because Claude Code gates kitty keyboard and synchronized output on
 `TERM_PROGRAM`. A recording made without that contract is worthless as a fixture.

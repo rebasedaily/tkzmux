@@ -1,4 +1,4 @@
-// UpdateStateTests — the store side of the sidebar's update card (TKZ-50).
+// UpdateStateTests — the store side of the sidebar's update card.
 //
 // Two contracts: the release check and the `✕` ride `ChangeSet.chrome` and nothing else (no row
 // reload, nothing structural), and `visibleUpdate` is the one derivation the card reads.

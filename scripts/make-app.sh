@@ -25,7 +25,7 @@ SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 APP="build/tkzmux.app"
 CONTENTS="$APP/Contents"
 
-# ---------------------------------------------------------------------------- version (TKZ-37)
+# ---------------------------------------------------------------------------- version
 #
 # The single source of truth for the marketing version is `git describe --tags --match 'v*'
 # --dirty`. It is parsed RIGHT-TO-LEFT, because a prerelease tag (`v1.0.0-rc1`) contains dashes
@@ -98,14 +98,14 @@ echo "==> assembling $APP"
 rm -rf "$APP"
 mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Resources"
 cp "$BIN/tkzmux" "$CONTENTS/MacOS/tkzmux"
-# tkzmux-hook (TKZ-23): ShimInstaller.standardHookBinary() looks for it next to `tkzmux` in both
+# tkzmux-hook: ShimInstaller.standardHookBinary() looks for it next to `tkzmux` in both
 # the .app and `swift run`, and ShimInstaller copies it on into ~/Library/Application
 # Support/tkzmux/bin at install time -- this is only the source copy.
 cp "$BIN/tkzmux-hook" "$CONTENTS/MacOS/tkzmux-hook"
 cp Resources/Info.plist "$CONTENTS/Info.plist"
 printf 'APPL????' > "$CONTENTS/PkgInfo"
 
-# Stamp the COPY only (TKZ-37). Resources/Info.plist keeps its committed placeholders, so a
+# Stamp the COPY only. Resources/Info.plist keeps its committed placeholders, so a
 # build never dirties the working tree — which matters because `make dist` refuses a dirty tree
 # and because the version itself is derived from the tree's git state.
 # This has to happen BEFORE codesign: Info.plist is part of the signed seal.
@@ -117,7 +117,7 @@ printf 'APPL????' > "$CONTENTS/PkgInfo"
 
 # SwiftPM resource bundles (`Bundle.module`) go into Contents/Resources.
 #
-# NOTE (M1.9 / TKZ-15, verified): SwiftPM's generated `resource_bundle_accessor.swift` looks for
+# NOTE (M1.9, verified): SwiftPM's generated `resource_bundle_accessor.swift` looks for
 # `Bundle.main.bundleURL/<name>.bundle`, i.e. the *root* of the .app — and `codesign --strict`
 # rejects anything but `Contents` at a bundle root ("unsealed contents present in the bundle
 # root"; also true for a symlink, and for a bundle carrying its own Info.plist). Those two rules
@@ -162,7 +162,7 @@ if ((${#shaders[@]})); then
 fi
 shopt -u nullglob
 
-# App icon (TKZ-49). Resources/AppIcon.icon is an Icon Composer document (Claude Design artboard
+# App icon. Resources/AppIcon.icon is an Icon Composer document (Claude Design artboard
 # 3a; it opens in /Applications/Xcode.app/Contents/Applications/Icon Composer.app). actool compiles
 # it into Assets.car, which macOS 26 renders as a Liquid Glass icon — a legacy .icns would be put
 # on Tahoe's gray "non-conforming icon" tile instead. actool also emits a flat AppIcon.icns
@@ -182,7 +182,7 @@ cp build/icon/Assets.car "$CONTENTS/Resources/Assets.car"
 cp build/icon/AppIcon.icns "$CONTENTS/Resources/AppIcon.icns"
 rm -rf build/icon
 
-# Signing (TKZ-38). Two rules that are easy to get wrong:
+# Signing. Two rules that are easy to get wrong:
 #
 # 1. INSIDE-OUT, never `--deep`. Contents/MacOS/tkzmux-hook is a second Mach-O inside the
 #    bundle. `codesign --verify --deep --strict` passes on an unsigned helper there because it

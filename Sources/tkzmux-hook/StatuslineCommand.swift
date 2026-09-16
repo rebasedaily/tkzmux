@@ -1,5 +1,5 @@
 // `tkzmux-hook statusline` — the `statusLine` command tkzmux installs into the user's
-// `settings.json` (TKZ-32). `Darwin` only, like the rest of this target.
+// `settings.json`. `Darwin` only, like the rest of this target.
 //
 // Claude Code hands rate limits and context usage to the statusline command on stdin and nowhere
 // else — they never reach disk on their own. This mode reads that payload once, mirrors the parts

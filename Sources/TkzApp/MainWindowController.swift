@@ -1,4 +1,4 @@
-// MainWindowController — the real main window (M2.2 / TKZ-18).
+// MainWindowController — the real main window (M2.2).
 //
 // design.md → *App architecture*: an `NSSplitViewController` with the sidebar on the left (300 pt,
 // min 240, collapsible), the single terminal surface on the right, the 30 pt status strip along the
@@ -22,7 +22,7 @@
 //     that builds the real thing, and `AppDelegate` is its only caller.
 //
 // Window frame, sidebar width and sidebar visibility live in the store and are persisted by
-// `Persistence.StateAutosaver` (M5.1 / TKZ-29). This class writes no file of its own; it only
+// `Persistence.StateAutosaver` (M5.1). This class writes no file of its own; it only
 // reports what the window is doing back into the store, and applies what the store says.
 
 import AppKit
@@ -121,12 +121,12 @@ final class MainWindow: NSWindow {
 /// headless render is unaffected).
 final class DetailViewController: NSViewController {
     let terminalContainer = NSView()
-    /// The pane tree. It replaced a single injected terminal view in TKZ-36; everything else about
+    /// The pane tree. It replaced a single injected terminal view with the pane split; everything else about
     /// this layout — the safe-area top pin, the empty state as a z=2 sibling, the status bar's own
     /// height constraint — is untouched.
     let paneContainer: PaneContainerView
     /// Above the panes, and 0 pt tall for a session with one tab — so a single-terminal session's
-    /// layout is exactly what it was before TKZ-36.
+    /// layout is exactly what it was before the pane split.
     let tabStrip: TabStripView
     /// A file tab's read-only viewer, laid exactly over the panes and hidden while a terminal tab
     /// is on screen. The panes stay laid out underneath so switching back never resizes a pty.
@@ -359,10 +359,13 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// ⌥⌘P — the selected session's first prompt and Claude's recap, as a glass card over the
     /// terminal (design 2c.5).
     public let promptCard: PromptCardController
-    /// The view-only changes viewer over the terminal (design 2c.2 / TKZ-58).
+    /// The view-only changes viewer over the terminal (design 2c.2).
     let changes: ChangesViewerController
     /// The rebase sheet (design 5a/5b): ⌥⌘R, or the `⤿ 7 behind main` chip in the status bar.
     public let rebaseSheet: RebaseSheetController
+    /// The Settings window (design 7a–d): ⌘,. Holds the preference switches that used to
+    /// be app-menu items; the store is still the only writer.
+    let settings: SettingsWindowController
     /// The other way onto the card: scrolling up in the focused terminal peeks it. One policy for
     /// the window — it only ever describes the selected row's focused pane, and is reset when
     /// that changes.
@@ -378,7 +381,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     public var paneContainer: PaneContainerView { detail.paneContainer }
     /// The focused pane's terminal view, or the container when there is no pane.
     ///
-    /// A computed property since TKZ-36: with one terminal per row this was the one injected view
+    /// A computed property since the pane split: with one terminal per row this was the one injected view
     /// and every caller could hold it, but "the terminal" now depends on which pane has focus.
     /// The *terminal*, not its chrome: this is what takes the keyboard.
     public var terminalView: NSView {
@@ -432,9 +435,9 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// (the injected-host initialiser), which is what makes `projectedLaunchSize` decline rather
     /// than invent a grid. Set by tests that want to assert the projection.
     var launchCellMetrics: (() -> (width: Int, height: Int))?
-    /// Keyboard/IME (TKZ-13). Held strongly — the view's `inputDelegate` is weak.
+    /// Keyboard/IME. Held strongly — the view's `inputDelegate` is weak.
     public let inputController = TerminalInputController()
-    /// Mouse reporting, selection and the clipboard (TKZ-14). Held strongly for the same reason.
+    /// Mouse reporting, selection and the clipboard. Held strongly for the same reason.
     public let mouseController = MouseController()
     private var commandKeyMonitor: Any?
 
@@ -517,6 +520,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         self.promptCard = PromptCardController(theme: theme)
         self.changes = ChangesViewerController(theme: theme)
         self.rebaseSheet = RebaseSheetController(theme: theme)
+        self.settings = SettingsWindowController(store: store, theme: theme)
         self.chrome = ChromeViewController(
             splitViewController: splitViewController, overlay: cheatSheet.view, theme: theme)
 
@@ -559,6 +563,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         wirePromptCard()
         wireChangesViewer()
         wireTabStrip()
+        wireSettings()
         registerMenuHandlers()
         observeStore()
         startEventPump()
@@ -941,7 +946,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             else { return }
             newSessionMenu.perform(launch)
         }
-        // `◫`/`⬓` — the buttons the design drew disabled behind "Coming later" until TKZ-36.
+        // `◫`/`⬓` — the buttons the design drew disabled behind "Coming later" until the pane split landed.
         toolbarController.onSplitVertically = { [weak self] in
             self?.addTerminal(splitting: .horizontal)
         }
@@ -951,7 +956,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         toolbarController.onToggleTheme = { [weak self] in
             self?.toggleTheme()
         }
-        // Design 2c.6 / TKZ-52: typing in the toolbar field opens the results overlay under the
+        // Design 2c.6: typing in the toolbar field opens the results overlay under the
         // window's top-right corner and keeps the caret where it is. Emptying the field closes it
         // again — the field is the only state, so there is nothing left filtered or floating.
         toolbarController.onSearchChanged = { [weak self] query in
@@ -1121,7 +1126,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    // MARK: - Changes viewer (design 2c.2 / TKZ-58)
+    // MARK: - Changes viewer (design 2c.2)
 
     private func wireChangesViewer() {
         detail.install(changesView: changes.view)
@@ -1394,7 +1399,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    // MARK: - Panes (TKZ-36)
+    // MARK: - Panes
 
     /// Rebuilds the tab strip from the selected row.
     private func applyTabStrip() {
@@ -1581,7 +1586,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         guard let metal = pane.metalView, let host = host as? TerminalViewHost else { return pane }
         metal.inputDelegate = pane.input
         // Both transports address *this* pane. Routing by "the visible session" is what made the
-        // unfocused pane's keystrokes land in the focused pane's shell (TKZ-36).
+        // unfocused pane's keystrokes land in the focused pane's shell.
         pane.input.writeInput = { [weak host] data in host?.writeInput(id, data) }
         pane.input.isFocusReportingEnabled = { [weak host] in
             host?.session(for: id)?.mode(1004) ?? false
@@ -1705,6 +1710,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         promptCard.dismiss()
         changes.dismiss()
         rebaseSheet.dismiss()
+        settings.close()
         if let commandKeyMonitor {
             NSEvent.removeMonitor(commandKeyMonitor)
             self.commandKeyMonitor = nil
@@ -1765,7 +1771,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// The NEEDS YOU banner + ping (TKZ-74), once `AppDelegate` has built it. The window lends it
+    /// The NEEDS YOU banner + ping, once `AppDelegate` has built it. The window lends it
     /// the "is the user looking at this row" check, and takes the banner click back as a reveal.
     public var attention: AttentionNotifier? {
         didSet {
@@ -1785,7 +1791,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// The update-card coordinator (TKZ-50), once `AppDelegate` has built it — only for a release
+    /// The update-card coordinator, once `AppDelegate` has built it — only for a release
     /// build, or a dev build with `TKZMUX_UPDATE_URL`. The sidebar's card links route here, and
     /// "Restart to update" comes back as `restartForUpdate(installed:)`.
     public var update: UpdateIntegration? {
@@ -1892,7 +1898,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    // MARK: Status line integration (TKZ-32)
+    // MARK: Status line integration
 
     /// The account the statusline commands act on: the selected row's, else the primary one.
     private var statuslineAccountKey: String {
@@ -1902,8 +1908,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         return Account.defaultKey
     }
 
-    /// The menu command — a toggle. Installing edits the user's `settings.json`, which nothing else
-    /// in tkzmux does, so it never happens without the sheet below.
+    /// Install or remove for the selected row's account, as one toggle — the form the tests and the
+    /// automatic startup path use; the Settings window calls `offerStatusline` / `removeStatusline`
+    /// per account directly. Installing edits the user's `settings.json`, which nothing else in
+    /// tkzmux does, so it never happens without the sheet below.
     func statusLineIntegration() {
         guard let claude else { return }
         let key = statuslineAccountKey
@@ -1948,10 +1956,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         if let before = plan.before {
             body += "Now:\n\(before)\n\nAfter:\n\(plan.after)\n\n"
                 + "Your current status line keeps running and its output is passed through "
-                + "unchanged. Status Line Integration in the app menu puts it back exactly."
+                + "unchanged. Settings \u{203A} General puts it back exactly."
         } else {
             body += "After:\n\(plan.after)\n\n"
-                + "Status Line Integration in the app menu removes it again."
+                + "Settings \u{203A} General removes it again."
         }
         alert.informativeText = body
         alert.addButton(withTitle: "Install")
@@ -1962,7 +1970,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         // -floating panel rather than something attached to the window, and every window behind it
         // is inert until it is answered — on the one launch that shows it, the app reads as hung
         // (reported 2026-09-09). A sheet is what this was always documented to be.
-        alert.beginSheetModal(for: window) { [weak self] response in
+        alert.beginSheetModal(for: sheetParent) { [weak self] response in
             self?.finishStatuslineOffer(
                 confirmed: response == .alertFirstButtonReturn, accountKey: accountKey)
         }
@@ -2506,7 +2514,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     ///
     /// `perform`'s `false` is not handled here because a command row cannot outlive its handler:
     /// the rows are built from `CommandPaletteController.performableCommands`, which is the
-    /// dispatcher's own set (TKZ-53), and nothing removes a handler once registered.
+    /// dispatcher's own set, and nothing removes a handler once registered.
     func activate(_ activation: PaletteActivation) {
         switch activation {
         case .result(let result):
@@ -2702,8 +2710,13 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// re-reads every session's transcript right away, rather than leaving every badge and the
     /// status bar blank until each session's next hook fires.
     func toggleSessionSpend() {
-        store.update { $0.setShowSessionSpend(!$0.showSessionSpend) }
-        if store.state.showSessionSpend { claude?.refreshAllUsage() }
+        setShowSessionSpend(!store.state.showSessionSpend)
+    }
+
+    /// The Settings switch's form of the same: an absolute value rather than a flip.
+    func setShowSessionSpend(_ isOn: Bool) {
+        store.update { $0.setShowSessionSpend(isOn) }
+        if isOn { claude?.refreshAllUsage() }
     }
 
     /// The periodic base-branch fetch (2026-09-13). `GitIntegration` reads the flag back through
@@ -2712,10 +2725,49 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         store.update { $0.setCheckOriginPeriodically(!$0.checkOriginPeriodically) }
     }
 
-    /// The "Claude finished" banner switch (TKZ-74). `AttentionNotifier` reads it back through
+    /// The "Claude finished" banner switch. `AttentionNotifier` reads it back through
     /// `ChangeSet.chrome`; off takes the finished banners back.
     func toggleDoneNotification() {
         store.update { $0.setNotifyOnDone(!$0.notifyOnDone) }
+    }
+
+    // MARK: - Settings
+
+    /// ⌘, and the palette's "Settings…" row. Centred over this window the first time it opens.
+    public func presentSettings() {
+        settings.present(over: window.isVisible ? window.frame : nil)
+    }
+
+    /// The window shows two facts the store does not hold and runs three flows that end in an
+    /// alert; all of them belong to this controller (the `claude` coordinator, the consent sheets
+    /// and their test hooks), so the Settings window gets them as closures.
+    private func wireSettings() {
+        settings.actions = SettingsWindowController.Actions(
+            setShowSessionSpend: { [weak self] isOn in self?.setShowSessionSpend(isOn) },
+            offerStatusline: { [weak self] key in self?.offerStatusline(accountKey: key, automatic: false) },
+            removeStatusline: { [weak self] key in self?.removeStatusline(accountKey: key) },
+            removeShellIntegration: { [weak self] in self?.removeShellIntegration() },
+            statuslineProducers: { [weak self] in
+                guard let self, let claude = self.claude else { return [:] }
+                var producers: [String: StatuslineProducer] = [:]
+                for key in self.store.state.accounts.keys {
+                    producers[key] = claude.statuslineProducer(accountKey: key)
+                }
+                return producers
+            },
+            shellIntegrationInstalled: { [weak self] in self?.claude?.installer?.isInstalled },
+            shellIntegrationDirectory: { [weak self] in
+                guard let directory = self?.claude?.installer?.directory else { return nil }
+                return (directory.path as NSString).abbreviatingWithTildeInPath
+            })
+    }
+
+    /// The sheet's parent while Settings is up: a sheet on the main window would open *behind*
+    /// the Settings window and read as nothing having happened. The automatic startup offer
+    /// (`offerStatuslineIfNeeded`) runs before Settings can be open, so it always lands on `window`.
+    private var sheetParent: NSWindow {
+        if settings.isShown, let settingsWindow = settings.windowForTesting { return settingsWindow }
+        return window
     }
 
     // MARK: - Theme
@@ -2755,6 +2807,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         promptCard.theme = new
         changes.theme = new
         rebaseSheet.theme = new
+        settings.theme = new
         cheatSheet.setTheme(new)
 
         // The palette and the prompt card are separate `NSPanel`s and re-derive their own
@@ -2774,12 +2827,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// returns whether to go ahead. Only asked for a group that still has rows. Tests set it.
     public var confirmRemoveGroup: ((Group, [Session]) -> Bool)?
 
-    /// Vetoes the relaunch after an update (TKZ-50): gets the relaunch plan, returns whether to
+    /// Vetoes the relaunch after an update: gets the relaunch plan, returns whether to
     /// go ahead. Unset, the app relaunches without asking. Tests set it. See
     /// `restartForUpdate(installed:)`.
     public var confirmRestartForUpdate: ((RelaunchPlan) -> Bool)?
 
-    /// Overrides the relaunch itself (TKZ-50). Tests set it; the default spawns the `open` waiter
+    /// Overrides the relaunch itself. Tests set it; the default spawns the `open` waiter
     /// and terminates the app.
     public var performRelaunch: ((RelaunchPlan) throws -> Void)?
 
@@ -2891,7 +2944,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         spendToggle.identifier = ContextItemID.toggleSpendTracking
         menu.addItem(spendToggle)
 
-        // Per-session mute (TKZ-74): no banners for this row, the badge and tint stay.
+        // Per-session mute: no banners for this row, the badge and tint stay.
         let muted = session.notificationsMuted == true
         let muteToggle = contextItem(
             muted ? "Unmute Notifications" : "Mute Notifications",
@@ -2919,7 +2972,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
 
         // The colour and the default account belong to the group, not the row — but the row is what
         // you are pointing at when you decide the whole group needs one, so both pickers are on
-        // both menus (TKZ-48).
+        // both menus.
         menu.addItem(.separator())
         menu.addItem(groupColorMenuItem(for: session.groupID))
         menu.addItem(groupDefaultAccountMenuItem(for: session.groupID))
@@ -3195,7 +3248,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         killProcessTree(for: id)
     }
 
-    /// The row's process-subtree footprint, combined across every pane it holds (TKZ-36): a build
+    /// The row's process-subtree footprint, combined across every pane it holds: a build
     /// or a runaway test can land in any one of them, not only the first.
     private func sessionMemorySample(for id: SessionID) -> SessionMemorySample? {
         guard let host = host as? TerminalViewHost else { return nil }
@@ -3354,7 +3407,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
 
     /// The main-thread half: attribute the samples to rows, bucket them, write the ones that moved.
     private func applySessionMemory(_ samples: [(id: TerminalID, sample: SessionMemorySample)]) {
-        // A row can hold several panes now (TKZ-36); its footprint is the sum across all of them.
+        // A row can hold several panes now; its footprint is the sum across all of them.
         var totals: [SessionID: UInt64] = [:]
         for (terminal, sample) in samples {
             guard let id = store.state.session(owning: terminal)?.id else { continue }
@@ -3476,20 +3529,33 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     // MARK: Menu handlers
 
     /// Everything the main menu can dispatch. Actions with no implementation yet are deliberately
-    /// absent, and since TKZ-53 that is what keeps them off the screen entirely: `MainMenu.build`
+    /// absent, and since the handler filter that is what keeps them off the screen entirely: `MainMenu.build`
     /// gives an action with no handler no item, the cheat sheet walks that menu, and the palette
     /// filters on ``MenuDispatcher/performableActions``. Adding a `setHandler` line here is the
     /// whole of restoring a command to all three surfaces.
     ///
-    /// Still unimplemented: `.settings` (TKZ-35), `.notifications` (TKZ-55), `.reloadConfig`
-    /// (TKZ-56). Their ids and chords stay in `ShortcutsTable`.
+    /// Still unimplemented: `.notifications`, `.reloadConfig`. Their ids and
+    /// chords stay in `ShortcutsTable`.
     private func registerMenuHandlers() {
         dispatcher.setHandler(.newSession) { [weak self] in self?.presentNewSessionMenu() }
+        // ⌘, — the Settings window. The preference toggles that used to be their own
+        // menu items live on its pages now and have no `ShortcutAction` any more.
+        dispatcher.setHandler(.settings) { [weak self] in self?.presentSettings() }
         // ⌘O is "In another repo…" reached from the File menu: the folder becomes a group and
-        // claude starts in it (TKZ-54). One flow, two ways in.
+        // claude starts in it. One flow, two ways in.
         dispatcher.setHandler(.openFolder) { [weak self] in self?.presentAnotherRepoPanel() }
         dispatcher.setHandler(.closeTerminal) { [weak self] in self?.closeFocusedTerminal() }
         dispatcher.setHandler(.closeSession) { [weak self] in self?.removeSelectedSession() }
+        // Not while the Settings window is key: ⌘W closes *it* (its own `performKeyEquivalent`
+        // runs first), and ⇧⌘W must not remove a row the user cannot see. Gated on that one
+        // window rather than on `window.isKeyWindow`, which is also false while the palette or
+        // the prompt card panel is up — and those do want the commands.
+        for action in [ShortcutAction.closeTerminal, .closeSession] {
+            dispatcher.setEnabled(action) { [weak self] in
+                guard let self, let settingsWindow = self.settings.windowForTesting else { return true }
+                return NSApp.keyWindow !== settingsWindow
+            }
+        }
         dispatcher.setHandler(.searchSessions) { [weak self] in self?.beginSearch() }
         dispatcher.setHandler(.commandPalette) { [weak self] in self?.presentPalette(mode: .all) }
         dispatcher.setHandler(.toggleSidebar) { [weak self] in self?.toggleSidebar() }
@@ -3508,21 +3574,10 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
             return self.git?.canRebaseOntoBase(id)
                 ?? (self.store.state.sessions[id]?.live?.git.map { $0.isOffBase && ($0.behindBase ?? 0) > 0 } ?? false)
         }
-        dispatcher.setHandler(.removeShellIntegration) { [weak self] in self?.removeShellIntegration() }
-        dispatcher.setHandler(.statusLineIntegration) { [weak self] in self?.statusLineIntegration() }
         // M5.2
         dispatcher.setHandler(.resumeSession) { [weak self] in self?.resumeSelectedSession() }
         dispatcher.setHandler(.resumeAllInGroup) { [weak self] in self?.resumeAll() }
-        dispatcher.setHandler(.toggleAutoResume) { [weak self] in self?.toggleAutoResume() }
         dispatcher.setHandler(.toggleTheme) { [weak self] in self?.toggleTheme() }
-        dispatcher.setHandler(.toggleSessionSpend) { [weak self] in self?.toggleSessionSpend() }
-        dispatcher.setCheckmark(.toggleAutoResume) { [weak self] in self?.store.state.autoResumeOnLaunch ?? false }
-        dispatcher.setCheckmark(.toggleSessionSpend) { [weak self] in self?.store.state.showSessionSpend ?? true }
-        dispatcher.setHandler(.toggleOriginCheck) { [weak self] in self?.toggleOriginCheck() }
-        dispatcher.setCheckmark(.toggleOriginCheck) { [weak self] in self?.store.state.checkOriginPeriodically ?? false }
-        // TKZ-74: on by default, so the fallback reads `?? true` like the spend switch.
-        dispatcher.setHandler(.toggleDoneNotification) { [weak self] in self?.toggleDoneNotification() }
-        dispatcher.setCheckmark(.toggleDoneNotification) { [weak self] in self?.store.state.notifyOnDone ?? true }
         dispatcher.setHandler(.nextSession) { [weak self] in
             self?.store.update { $0.selectAdjacentSession(offset: 1) }
         }
@@ -3536,11 +3591,11 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
         registerPaneHandlers()
         // Last, so it sees every handler above: the palette's command rows are the same set the
-        // menu builds items for (TKZ-53).
+        // menu builds items for.
         palette.performableCommands = dispatcher.performableActions
     }
 
-    /// Panes and tabs (TKZ-36).
+    /// Panes and tabs.
     ///
     /// A command that moves focus without changing the tree's shape calls `focusPane` after its
     /// `store.update`: the `layout` branch applies selection with `focusTerminal: false` so a click

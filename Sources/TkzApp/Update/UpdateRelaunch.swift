@@ -1,4 +1,4 @@
-// UpdateRelaunch — "Restart to update" (TKZ-50).
+// UpdateRelaunch — "Restart to update".
 //
 // A detached `/bin/sh` waits for this process to exit, then `open`s the bundle path, and the app
 // terminates normally so `applicationWillTerminate` runs: snapshots, SIGHUP to every pty, and a

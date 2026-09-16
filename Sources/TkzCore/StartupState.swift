@@ -4,7 +4,7 @@
 // the perf harness. It is deliberately **not launchable**: its cwds are tilde-literal paths into
 // repos that need not exist. Seeding the real window with it shows a full sidebar where every row
 // opens nothing, which reads as a broken app rather than an empty one — so the app starts from
-// `AppState.startup` and the fixture moves behind `TKZMUX_FIXTURE=1` (M2.5 / TKZ-43).
+// `AppState.startup` and the fixture moves behind `TKZMUX_FIXTURE=1` (M2.5).
 
 import Foundation
 
@@ -18,7 +18,7 @@ extension AppState {
     /// that is load-bearing: `NewSessionMenu` disables every launch row when `group.repoRoot` is
     /// nil, so a bucket would make ⌘N open a menu of dead entries. Home is not a git repo, so
     /// *New worktree (claude -w)* is enabled but will fail when picked — real repo groups arrive
-    /// with *In another repo…* (TKZ-30).
+    /// with *In another repo…*.
     public static func startup(homeDirectory: String, now: Date = Date()) -> AppState {
         var state = AppState()
         let name = (homeDirectory as NSString).lastPathComponent

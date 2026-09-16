@@ -1,4 +1,4 @@
-// GitDiffServiceTests — the process half of the changes viewer (TKZ-58), over a real temp repo.
+// GitDiffServiceTests — the process half of the changes viewer, over a real temp repo.
 // Reuses `TKZ26Fixture` from the status service tests: same git knobs, same cleanup.
 
 import Foundation

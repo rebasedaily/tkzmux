@@ -1,4 +1,4 @@
-// TerminalRenderer — the three-pass Metal renderer (M1.5 / TKZ-11).
+// TerminalRenderer — the three-pass Metal renderer (M1.5).
 // See docs/design.md → Terminal engine → Metal renderer, and TkzShaderTypes.h for the contract.
 //
 // One instance app-wide: it owns the pipelines, the shared `GlyphCache` (both atlases), the

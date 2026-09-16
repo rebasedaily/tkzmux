@@ -1,5 +1,5 @@
-// SummaryStripView — the "● N WORKING   ● N NEED YOU" strip at the top of the session list (M2.3 /
-// TKZ-19; moved from the bottom to the top and set in the group headers' uppercase caption style on
+// SummaryStripView — the "● N WORKING   ● N NEED YOU" strip at the top of the session list (M2.3;
+// moved from the bottom to the top and set in the group headers' uppercase caption style on
 // 2026-09-08, which is where and how the artboards draw it).
 //
 // Since 2c.1 the words are neutral (`Theme.summaryText`) and a static 7 pt dot before each count

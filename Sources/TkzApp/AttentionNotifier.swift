@@ -1,4 +1,4 @@
-// AttentionNotifier — TKZ-74: the sidebar's two signals, as macOS notifications.
+// AttentionNotifier — the sidebar's two signals, as macOS notifications.
 //
 // Watches the store for a row flipping into NEEDS YOU for one of the three *blocked* reasons
 // (permission prompt, elicitation, agent input), or getting its "done" tint (Claude finished a

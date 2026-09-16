@@ -1,4 +1,4 @@
-// CommandPaletteController.swift — ⌘P “Search sessions…” and ⇧⌘P “Command palette” (M2.4 / TKZ-20).
+// CommandPaletteController.swift — ⌘P “Search sessions…” and ⇧⌘P “Command palette” (M2.4).
 //
 // design.md → App architecture → Palette: "⇧⌘P; `NSPanel` + `NSVisualEffectView`: fuzzy over
 // sessions (title, branch, cwd, group), groups, commands".
@@ -18,7 +18,7 @@
 //
 // Two placements (``Presentation``), because the design gives the two entry points different
 // shapes. ⇧⌘P centres the panel and lets it take key. The toolbar's "Search sessions…" field
-// (design 2c.6, TKZ-52) hangs the same panel from the window's top-right as a **child window that
+// (design 2c.6) hangs the same panel from the window's top-right as a **child window that
 // never becomes key**, hides the panel's own field, and drives ``updateQuery(_:)`` /
 // ``moveSelection(by:)`` / ``activateSelection()`` from the toolbar field's editor commands — that
 // is the only way the caret can stay in the toolbar while a list is on screen.
@@ -139,7 +139,7 @@ public final class CommandPaletteController: NSObject {
 
     /// The actions the command section may list — `MainWindowController` sets it from
     /// `MenuDispatcher.performableActions` once every handler is registered. A row the palette
-    /// shows has to do something when it is chosen (TKZ-53).
+    /// shows has to do something when it is chosen.
     public var performableCommands: Set<ShortcutAction> = Set(ShortcutsTable.allActions) {
         didSet {
             guard performableCommands != oldValue else { return }

@@ -1,4 +1,4 @@
-// The tab strip's presentation model (TKZ-36).
+// The tab strip's presentation model.
 //
 // Same shape as `SidebarRowModels`: value types with no `TkzCore` model inside them, so the view
 // renders deterministically from data a test can construct, and the geometry is a pure function

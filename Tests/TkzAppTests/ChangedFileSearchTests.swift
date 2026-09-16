@@ -6,7 +6,7 @@ import TkzCore
 
 @testable import TkzApp
 
-/// The overlay's "Files changed" section (TKZ-52, design 2c.6). The ranking is pure — the paths are
+/// The overlay's "Files changed" section (design 2c.6). The ranking is pure — the paths are
 /// handed in, so none of this needs a repo on disk.
 @MainActor
 @Suite(.serialized)

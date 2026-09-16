@@ -1,8 +1,8 @@
-// SidebarRowModels — the *presentation* input to the sidebar row views (M2.3 / TKZ-19).
+// SidebarRowModels — the *presentation* input to the sidebar row views (M2.3).
 //
 // These structs deliberately contain **no `TkzCore` model types** (`Session`, `Group`,
 // `SessionStatus`, `Account`, …). The row views are built and tested against them alone, so the
-// presentation layer can land before the store (TKZ-17) exists, and so a row can be rendered
+// presentation layer can land before the store exists, and so a row can be rendered
 // headlessly from a literal in a test without standing up an `AppStore`.
 //
 // Wave 2 (`SidebarViewController`, M2.4) writes the one adapter that maps the real models onto
@@ -85,7 +85,7 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
     /// seen. Drives the amber `NEEDS YOU` badge, and nothing else.
     public var needsAttention: Bool
 
-    /// `true` when the session's notifications are muted from its context menu (TKZ-74). Drives
+    /// `true` when the session's notifications are muted from its context menu. Drives
     /// the neutral `MUTED` pill on the title line, and nothing else: the badge and the dot still
     /// say what they say, only the banners are off.
     public var isMuted: Bool
@@ -103,7 +103,7 @@ public struct SidebarSessionRowModel: Hashable, Sendable {
     public var memoryBadge: String?
 
     /// The **containing group's** colour, so the 2.5 pt edge runs down the whole group rather than
-    /// stopping at its header (TKZ-48). `nil` — an uncoloured group — leaves the edge layer fully
+    /// stopping at its header. `nil` — an uncoloured group — leaves the edge layer fully
     /// transparent, exactly as on the header; it is never `Theme.groupEdgeDefault`.
     public var groupColor: RGB?
 
@@ -213,7 +213,7 @@ public struct SidebarSummaryModel: Hashable, Sendable {
     }
 }
 
-// MARK: - Update card (TKZ-50)
+// MARK: - Update card
 
 /// What a click on the update card's second line asks the owner to do.
 public enum UpdateAction: Hashable, Sendable {
@@ -274,7 +274,7 @@ public enum SidebarMetrics {
     public static let summaryStripHeight: Double = 26
     /// The "＋ New group" footer strip: a 26 pt dashed button with 2 pt above and 10 pt below.
     public static let newGroupFooterHeight: Double = 38
-    /// The "Update available" card above the footer (TKZ-50): a 40 pt card with 2 pt above and
+    /// The "Update available" card above the footer: a 40 pt card with 2 pt above and
     /// 6 pt below. Only laid out while a card is showing.
     public static let updateNoticeHeight: Double = 48
     /// How far a session row's content sits inside its group header's.

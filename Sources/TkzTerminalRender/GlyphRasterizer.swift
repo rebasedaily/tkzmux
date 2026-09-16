@@ -1,4 +1,4 @@
-// GlyphRasterizer — shaped grapheme → CPU bitmap + placement metrics (M1.4 / TKZ-10).
+// GlyphRasterizer — shaped grapheme → CPU bitmap + placement metrics (M1.4).
 // See docs/design.md → Terminal engine → Metal renderer.
 //
 // Grayscale glyphs go into an 8-bit alpha bitmap, colour glyphs (Apple Color Emoji) into BGRA with

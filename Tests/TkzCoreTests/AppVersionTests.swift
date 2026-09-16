@@ -1,4 +1,4 @@
-// AppVersionTests — M6.1 / TKZ-37 acceptance.
+// AppVersionTests — M6.1 acceptance.
 //
 // Two halves: the pure `git describe` → marketing-version derivation, and the Info.plist reading,
 // exercised through `init(infoDictionary:)` so nothing here depends on a real bundle.

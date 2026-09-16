@@ -16,7 +16,7 @@ private func tempDir(_ name: String) throws -> URL {
 }
 
 /// Everything a session inherits in these tests is explicit — nothing depends on the real `~`,
-/// and `SHELL` is zsh whatever the machine's login shell is (TKZ-33).
+/// and `SHELL` is zsh whatever the machine's login shell is.
 private func hostEnvironment(home: String, shell: String = "/bin/zsh") -> [String: String] {
     [
         "HOME": home,
@@ -158,7 +158,7 @@ private func hostEnvironment(home: String, shell: String = "/bin/zsh") -> [Strin
         #expect(env["TKZMUX_SOCKET"] == support.appending(path: "tkzmux.sock").path)
     }
 
-    /// TKZ-33: the ZDOTDIR trio is zsh's mechanism. Set for a bash or fish session, a nested
+    /// The ZDOTDIR trio is zsh's mechanism. Set for a bash or fish session, a nested
     /// `zsh` started from it would read tkzmux's wrappers. Everything else in the contract stays.
     @Test func bashAndFishGetNoZdotdir() throws {
         let home = try tempDir("nozdotdir")

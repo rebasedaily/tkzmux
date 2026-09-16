@@ -1,4 +1,4 @@
-// SessionRowView — the 44 pt sidebar session row (M2.3 / TKZ-19).
+// SessionRowView — the 44 pt sidebar session row (M2.3).
 //
 // Layout is manual (`layout()` computing frames from `bounds.width`), not Auto Layout: the outline
 // view recycles these and re-lays them on every scroll tick, and a 44 pt row with eight sublayers
@@ -96,7 +96,7 @@ public final class SessionRowView: NSTableCellView {
     // MARK: Layers & subviews
 
     /// The group's 2.5 pt colour edge, continued down this row so the stripe spans the whole group
-    /// rather than stopping at its header (TKZ-48). Always present so layout never shifts; fully
+    /// rather than stopping at its header. Always present so layout never shifts; fully
     /// transparent when the group has no colour. Bottom of the z-order, though nothing overlaps it:
     /// `selectionInset` keeps the selection/hover rect at x = 5.
     private let edgeLayer = SidebarLayers.fill(cornerRadius: 0)
@@ -121,7 +121,7 @@ public final class SessionRowView: NSTableCellView {
     /// no-colour-configured fallback): this is information, not a warning, so it must not compete
     /// with the amber badges for attention.
     private lazy var spendBadge = SidebarBadgeLayer(font: badgeFont)
-    /// "This row posts no banners" (TKZ-74), on the title line left of the spend figure. Neutral
+    /// "This row posts no banners", on the title line left of the spend figure. Neutral
     /// like spend, for the same reason: a reminder of a choice, not a warning.
     private lazy var mutedBadge = SidebarBadgeLayer(font: badgeFont)
     private lazy var needsYouBadge = SidebarBadgeLayer(font: badgeFont)

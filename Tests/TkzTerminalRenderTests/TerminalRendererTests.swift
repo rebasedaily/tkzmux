@@ -1,4 +1,4 @@
-// TerminalRendererTests — the GPU half of M1.5 (TKZ-11).
+// TerminalRendererTests — the GPU half of M1.5.
 //
 // Two things are proven here that nothing else can prove:
 //
@@ -263,7 +263,7 @@ struct TerminalRendererGoldenTests {
     }
 }
 
-// MARK: - Several surfaces at once (TKZ-36)
+// MARK: - Several surfaces at once
 
 /// Split panes mean N surfaces encoded per tick through one renderer. These are the properties
 /// that had to survive that, and the one that had to change.

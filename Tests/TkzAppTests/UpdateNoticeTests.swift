@@ -1,4 +1,4 @@
-// UpdateNoticeTests — the card itself, and the sidebar showing it (TKZ-50).
+// UpdateNoticeTests — the card itself, and the sidebar showing it.
 //
 // Three layers, bottom up: `SidebarRowAdapter.updateNotice(for:)` words the card per phase;
 // `UpdateNoticeView` rasterises it headlessly on every preset (the same bitmap harness as

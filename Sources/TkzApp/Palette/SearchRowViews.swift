@@ -1,4 +1,4 @@
-// SearchRowViews.swift — how the toolbar's results overlay draws (TKZ-52, design 2c.6).
+// SearchRowViews.swift — how the toolbar's results overlay draws (design 2c.6).
 //
 // 2c.6's rows are one line each, unlike ⇧⌘P's two-line `PaletteRowView`: a status dot, the title
 // with the matched characters marked in amber, a dim mono trailer, and a right-aligned hint. The

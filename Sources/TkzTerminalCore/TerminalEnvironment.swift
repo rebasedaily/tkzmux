@@ -1,5 +1,5 @@
-// TerminalEnvironment — the environment contract every tkzmux session runs under. M1.2 (TKZ-8);
-// the user's own login shell instead of a fixed `/bin/zsh` since TKZ-33 (see `LoginShell`).
+// TerminalEnvironment — the environment contract every tkzmux session runs under. M1.2;
+// the user's own login shell instead of a fixed `/bin/zsh` since the login-shell work (see `LoginShell`).
 import Foundation
 import TkzCore
 

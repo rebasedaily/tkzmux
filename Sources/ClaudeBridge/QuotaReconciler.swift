@@ -1,4 +1,4 @@
-// QuotaReconciler — turning a stream of quota readings into a number that does not lie (TKZ-32).
+// QuotaReconciler — turning a stream of quota readings into a number that does not lie.
 //
 // Why this exists at all: every concurrent Claude Code session runs its own statusline and writes
 // its account's sidecar with *its own* last-seen `rate_limits`, stamping a fresh `updated_at`

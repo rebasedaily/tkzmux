@@ -1,4 +1,4 @@
-// AttentionNotifierTests — TKZ-74: the sidebar's two signals as macOS notifications.
+// AttentionNotifierTests — the sidebar's two signals as macOS notifications.
 //
 // A real `AppStore` drives a real `AttentionNotifier`; the one seam that would reach macOS — the
 // notification centre — is a recording fake. Every flip goes through the same reducers the hooks

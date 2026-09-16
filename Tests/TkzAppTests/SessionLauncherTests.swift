@@ -1,4 +1,4 @@
-// SessionLauncherTests — M5.2 (TKZ-30): start, reopen, resume, close, remove, worktree refresh.
+// SessionLauncherTests — M5.2: start, reopen, resume, close, remove, worktree refresh.
 //
 // Everything runs against `SpyTerminalHost`: what is asserted is which host call was made, with
 // which cwd and env, and what the store says afterwards. Directories are real (a temp tree), so

@@ -1,4 +1,4 @@
-// The per-surface instance-buffer ring (TKZ-36).
+// The per-surface instance-buffer ring.
 //
 // The renderer used to own a single 3-deep ring, which was right while exactly one surface was
 // ever encoded per tick. With split panes it is not: N panes take N slots from the same ring in

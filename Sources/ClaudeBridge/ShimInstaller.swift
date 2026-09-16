@@ -10,8 +10,8 @@
 //     zsh/.zprofile           0644
 //     zsh/.zshrc              0644
 //     zsh/.zlogin             0644
-//     bash/tkzmux.bashrc      0644  `bash --rcfile` (TKZ-33)
-//     fish/tkzmux.fish        0644  `fish -C 'source …'` (TKZ-33)
+//     bash/tkzmux.bashrc      0644  `bash --rcfile`
+//     fish/tkzmux.fish        0644  `fish -C 'source …'`
 //     VERSION                 0644  content hash; see `version(resources:hookBinary:)`
 //
 // `zsh/` may already exist and be empty: `TerminalViewHost` creates it at startup so a login zsh

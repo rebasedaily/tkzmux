@@ -1,4 +1,4 @@
-// TkzCore — the sample state. `AppState.fixture` is what the sidebar (M2.3 / TKZ-19), the status
+// TkzCore — the sample state. `AppState.fixture` is what the sidebar (M2.3), the status
 // bar and the palette render before any real session exists, and what their tests measure against.
 //
 // It is deliberately *representative* rather than pretty: 40 sessions over the design's five
@@ -193,7 +193,7 @@ public enum Fixture {
         for group in state.orderedGroups { state.normalizeSessionOrder(in: group.id) }
 
         state.shortcuts = [
-            // Not "cmd+t": that is `newTerminal` since TKZ-36, and a fixture collision would
+            // Not "cmd+t": that is `newTerminal` since the pane split, and a fixture collision would
             // silently shadow it under TKZMUX_FIXTURE without any test noticing.
             "newSession": "ctrl+cmd+n",
             "closeTerminal": "cmd+w",

@@ -1,4 +1,4 @@
-// SidebarRowViewTests — M2.3 (TKZ-19), the presentation half.
+// SidebarRowViewTests — M2.3, the presentation half.
 //
 // What these prove, and why they are shaped this way:
 //
@@ -798,7 +798,7 @@ struct SidebarRowViewTests {
         #expect(Self.components(coloured.edgeColor).last == 0)
     }
 
-    @Test("A session row carries its group's colour edge, with the header's geometry (TKZ-48)")
+    @Test("A session row carries its group's colour edge, with the header's geometry")
     func sessionEdgeReflectsTheGroupColour() {
         let plain = Self.sessionRow(SidebarSessionRowModel(title: "aira", groupColor: nil))
         #expect(Self.components(plain.edgeColor).last == 0, "an uncoloured group must not borrow groupEdgeDefault")

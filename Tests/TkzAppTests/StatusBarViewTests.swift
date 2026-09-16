@@ -3,7 +3,7 @@ import Testing
 import TkzCore
 @testable import TkzApp
 
-/// Headless tests for the 36 pt status strip (TKZ-18, M2.2; resized with 2c.1 on 2026-09-12).
+/// Headless tests for the 36 pt status strip (M2.2; resized with 2c.1 on 2026-09-12).
 ///
 /// Content is asserted through `StatusBarView.segments(for:theme:)` — the pure function that turns
 /// the model into what gets drawn — and geometry/theming through an offscreen `NSBitmapImageRep`,
@@ -375,7 +375,7 @@ struct StatusBarViewTests {
         }
     }
 
-    // MARK: Visual sanity (writes PNGs to the temp dir; inspected by hand during TKZ-18)
+    // MARK: Visual sanity (writes PNGs to the temp dir; inspected by hand during)
 
     @Test func writesInspectionPngs() throws {
         // Temp dir only, and removed again unless TKZMUX_KEEP_SNAPSHOTS is set — the escape hatch

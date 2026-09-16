@@ -1,4 +1,4 @@
-// tkzmux — the app's entry point (M0.1 / TKZ-5), plus the `--version` intercept (M6.1 / TKZ-37).
+// tkzmux — the app's entry point (M0.1), plus the `--version` intercept (M6.1).
 //
 // `TkzAppMain.run()` touches `NSApplication.shared` on its first line, which connects to the window
 // server and never returns. Anything that must work headlessly — a version banner piped into a bug

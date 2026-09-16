@@ -1,4 +1,4 @@
-// CellMetrics — integer terminal cell geometry in device pixels (M1.4 / TKZ-10).
+// CellMetrics — integer terminal cell geometry in device pixels (M1.4).
 // See docs/design.md → Terminal engine → Metal renderer.
 //
 // Everything here is device pixels at the `FontSet`'s scale, because `FontSet` builds its `CTFont`s

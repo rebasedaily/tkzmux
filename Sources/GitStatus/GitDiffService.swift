@@ -1,4 +1,4 @@
-// GitDiffService — the process half of the changes viewer (TKZ-58, design 2c.2).
+// GitDiffService — the process half of the changes viewer (design 2c.2).
 //
 // `GitStatusService` answers "how much changed?" with two cheap calls it repeats on every
 // filesystem event. This one answers "what changed, exactly?" and is only asked while the viewer

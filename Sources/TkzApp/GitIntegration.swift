@@ -1,4 +1,4 @@
-// GitIntegration — the app-side coordinator for M4 (TKZ-26, TKZ-27, TKZ-28).
+// GitIntegration — the app-side coordinator for M4.
 //
 // `GitStatus` ships three services that each know one thing and none of which knows what a
 // `Session` is: `GitStatusService` (branch, diffstat, ahead/behind, FSEvents), `PRLookup`
@@ -73,7 +73,7 @@ public final class GitIntegration {
     private let now: () -> Date
 
     /// How often the selected row's ports are re-scanned. A scan of a 30-process tree is
-    /// microseconds (TKZ-28), so the interval is about not waking the process, not about cost.
+    /// microseconds, so the interval is about not waking the process, not about cost.
     public static let portInterval: TimeInterval = 10
 
     /// How old a cached PR answer may be before a Stop hook asks `gh` again. A turn that ran
@@ -347,7 +347,7 @@ public final class GitIntegration {
     /// every process in the tree, and the main thread is where frames are encoded.
     private func scanPorts(for id: SessionID) {
         guard let live = store.state.sessions[id]?.live else { return }
-        // Every pane's shell, not just the focused one's (TKZ-36). A shell is the root of a tree —
+        // Every pane's shell, not just the focused one's. A shell is the root of a tree —
         // a dev server started by Claude is a grandchild of it, and `claude` itself may have been
         // replaced by a resume — and with split panes the server the user wants a badge for is
         // just as likely to be in the pane they are *not* looking at. `shellPid`/`pid` stay in the

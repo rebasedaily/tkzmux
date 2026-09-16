@@ -1,4 +1,4 @@
-// ClaudeIntegrationTests — M3 (TKZ-21…TKZ-24): the coordinator that joins hook frames and
+// ClaudeIntegrationTests — M3: the coordinator that joins hook frames and
 // descriptors to sessions and posts derived status into the store.
 //
 // The first suite feeds synthetic frames straight into the `handle…` methods (no socket, no

@@ -1,4 +1,4 @@
-// MouseController, headless (M1.8 / TKZ-14).
+// MouseController, headless (M1.8).
 //
 // Two kinds of test live here, and the distinction matters:
 //
@@ -711,7 +711,7 @@ struct MouseControllerRoutingTests {
 
     @Test("a hover under a view drawn over the terminal is not reported")
     func coveredHoverIsNotReported() throws {
-        // The changes viewer (TKZ-58) sits over the terminal; the terminal's tracking area keeps
+        // The changes viewer sits over the terminal; the terminal's tracking area keeps
         // firing by geometry, and under any-event tracking each hover would otherwise go down
         // the pty as a `35;x;yM` motion report.
         guard let rig = try makeRig() else { return }

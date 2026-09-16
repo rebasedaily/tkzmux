@@ -1,5 +1,5 @@
 // StatuslineReaderTests — the consumer half, and the seam where what the producer writes meets what
-// `TkzCore` decodes (TKZ-32).
+// `TkzCore` decodes.
 //
 // The most valuable test here is `whatTheProducerWritesIsWhatTheReaderDecodes`: the producer is
 // hand-written JSON from a Foundation-free binary and the reader is `Codable`, so nothing but an

@@ -1,4 +1,4 @@
-// GitProcess — the one place this module runs a subprocess (M4.1 / TKZ-26).
+// GitProcess — the one place this module runs a subprocess (M4.1).
 //
 // design.md → *Git integration*: every git call the app makes is a **background** call that runs
 // while Claude may be running its own git in the same repo. So all of them go through here, and

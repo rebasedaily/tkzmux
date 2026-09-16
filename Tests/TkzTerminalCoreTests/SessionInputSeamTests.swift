@@ -1,6 +1,6 @@
 // SessionInputSeamTests — the M1 integration acceptance: input actually reaches the pty.
 //
-// TKZ-13 (keys) and TKZ-14 (mouse) were both fully unit-tested against a bare
+// Keys (M1.7) and mouse (M1.8) were both fully unit-tested against a bare
 // `GhosttyTerminalHandle`, but neither could be exercised through a real `TerminalSession`, because
 // the session exposed no way in. These tests drive the seam itself, against a **real** session —
 // same lock, same callbacks, same `IOContext` — and pin down the one thing that is easy to get

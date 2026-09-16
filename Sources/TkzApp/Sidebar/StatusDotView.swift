@@ -1,4 +1,4 @@
-// StatusDotView / StatusDotLayer — the session status dot and its pulse (M2.3 / TKZ-19).
+// StatusDotView / StatusDotLayer — the session status dot and its pulse (M2.3).
 //
 // The pulse is the one animation in the sidebar, and design.md is explicit about how it must be
 // done: *"one `CABasicAnimation` on a layer (GPU-side, zero app CPU), only on visible `working`

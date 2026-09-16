@@ -126,7 +126,7 @@ struct CheatSheetTests {
     // MARK: Model
 
     /// `handlers` defaults to the whole vocabulary: the menu only carries actions the dispatcher can
-    /// perform (TKZ-53), so a menu built from a bare `MenuDispatcher` would have no command rows to
+    /// perform, so a menu built from a bare `MenuDispatcher` would have no command rows to
     /// read at all.
     static func makeMenu(
         overrides: [String: String] = [:],
@@ -180,32 +180,33 @@ struct CheatSheetTests {
         #expect(!titles.contains("Resume All in Group"))
     }
 
-    /// TKZ-53: the card listed ⌘, ⌘I and ⇧⌘, as if they worked. It reads the menu, and the menu no
+    /// The card listed ⌘, ⌘I and ⇧⌘, as if they worked. It reads the menu, and the menu no
     /// longer carries an action the dispatcher cannot perform — so this follows with no exclusion
     /// list of its own, and a handler brings the row back.
     @Test("A command with no handler is not on the sheet, and a handler brings it back")
     func handlerlessCommandsAreOmitted() {
         let without = CheatSheetModel.sections(
-            from: Self.makeMenu(handlers: ShortcutsTable.allActions.filter { $0 != .settings }))
-        #expect(Self.row(without, "Settings\u{2026}") == nil)
+            from: Self.makeMenu(handlers: ShortcutsTable.allActions.filter { $0 != .reloadConfig }))
+        #expect(Self.row(without, "Reload Config") == nil)
         // Its neighbours are untouched; only the one row goes.
-        #expect(Self.row(without, "Reload Config")?.keys == "\u{21E7}\u{2318},")
+        #expect(Self.row(without, "Settings\u{2026}")?.keys == "\u{2318},")
 
         let with = CheatSheetModel.sections(from: Self.makeMenu())
-        #expect(Self.row(with, "Settings\u{2026}")?.keys == "\u{2318},")
+        #expect(Self.row(with, "Reload Config")?.keys == "\u{21E7}\u{2318},")
     }
 
-    /// The three actions that really have no handler today, against the running window's own menu.
+    /// The two actions that really have no handler today, against the running window's own menu.
     @Test("The running app's sheet lists no dead chord")
     func theRealSheetHasNoDeadChords() {
         let harness = MainWindowControllerTests.makeHarness()
         defer { harness.tearDown() }
 
         let sections = CheatSheetModel.sections(from: harness.controller.buildMainMenu())
-        for title in ["Settings\u{2026}", "Notifications", "Reload Config"] {
+        for title in ["Notifications", "Reload Config"] {
             #expect(Self.row(sections, title) == nil, "\(title) has no handler")
         }
-        #expect(Self.row(sections, "Open Folder\u{2026}")?.keys == "\u{2318}O", "TKZ-54 wired it")
+        #expect(Self.row(sections, "Open Folder\u{2026}")?.keys == "\u{2318}O", "⌘O is wired")
+        #expect(Self.row(sections, "Settings\u{2026}")?.keys == "\u{2318},", "⌘, is wired")
     }
 
     /// Reading the menu rather than a private table is what buys this: the AppKit standards are

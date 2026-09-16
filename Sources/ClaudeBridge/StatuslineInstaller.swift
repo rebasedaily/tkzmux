@@ -1,4 +1,4 @@
-// StatuslineInstaller — the only code in tkzmux that writes `~/.claude/settings.json` (TKZ-32).
+// StatuslineInstaller — the only code in tkzmux that writes `~/.claude/settings.json`.
 //
 // Everything else about the Claude integration is deliberately non-invasive: `ShimInstaller` writes
 // only into tkzmux's own Application Support directory, and the shim injects hooks per invocation

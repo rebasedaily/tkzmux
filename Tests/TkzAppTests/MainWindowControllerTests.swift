@@ -1,4 +1,4 @@
-// MainWindowControllerTests — M2.2 (TKZ-18), the assembled window.
+// MainWindowControllerTests — M2.2, the assembled window.
 //
 // Everything here runs in a real `NSWindow` that is **never ordered front**: the window is created
 // by the controller, laid out, and asserted on. That is the only way to check the split view's
@@ -28,7 +28,7 @@ struct MainWindowControllerTests {
 
     /// Records what the window asked of the terminal half.
     ///
-    /// The host is keyed by `TerminalID` since TKZ-36, but almost every assertion in these suites
+    /// The host is keyed by `TerminalID` since the pane split, but almost every assertion in these suites
     /// is about a *row*. Both are recorded, and the `SessionID`-shaped accessors are the ones the
     /// tests read: a row created by these harnesses has exactly one pane, whose uuid **is** the
     /// row's (`Session.init`, and `Migrations.liftV1ToV2` for anything restored), so the mapping
@@ -252,8 +252,17 @@ struct MainWindowControllerTests {
             },
             theme: .default, home: home)
         let harness = Harness(store: store, controller: controller, host: host, terminalView: first)
+        keepOffScreen(controller)
         harness.layout()
         return harness
+    }
+
+    /// The rebase sheet and the Settings window would otherwise really appear (`makeKeyAndOrderFront`),
+    /// and a window on screen in the test process is what let runs end early — see the
+    /// header of `RebaseSheetTests`. The main window itself is never ordered front by anything.
+    static func keepOffScreen(_ controller: MainWindowController) {
+        controller.rebaseSheet.orderFront = { _ in }
+        controller.settings.orderFront = { _ in }
     }
 
     static func makeHarness(_ state: AppState = .fixture, home: String = emptyHome) -> Harness {
@@ -265,11 +274,12 @@ struct MainWindowControllerTests {
             store: store, host: host, terminalView: view, theme: .default, home: home)
         let harness = Harness(
             store: store, controller: controller, host: host, terminalView: view)
+        keepOffScreen(controller)
         harness.layout()
         return harness
     }
 
-    // MARK: - Panes (TKZ-36)
+    // MARK: - Panes
 
     /// Polls a condition, flushing the store each turn, for up to two seconds.
     @MainActor

@@ -57,7 +57,7 @@ public struct ChangeSet: Hashable, Sendable {
     public var usage: Bool
     /// Window chrome and settings that belong to no row: `sidebarVisible`, `sidebarWidth`,
     /// `windowFrame`, `shortcuts`, the update card's `update` /
-    /// `dismissedUpdateVersion` (TKZ-50), and the "Claude finished" notification switch (TKZ-74).
+    /// `dismissedUpdateVersion`, and the "Claude finished" notification switch.
     /// The sidebar's update card and `AttentionNotifier` listen to this; the outline
     /// rows ignore it. `StateAutosaver`
     /// deliberately does *not*:

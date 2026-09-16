@@ -1,4 +1,4 @@
-// StatuslineReader — the consumer half of TKZ-32.
+// StatuslineReader — the consumer half of the status line integration.
 //
 // `tkzmux-hook statusline` writes two kinds of file into `~/Library/Application
 // Support/tkzmux/statusline`:

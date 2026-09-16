@@ -1,9 +1,9 @@
-// ClaudeIntegration — the app-side coordinator for M3 (TKZ-21…TKZ-25).
+// ClaudeIntegration — the app-side coordinator for M3.
 //
 // `ClaudeBridge` ships two services that each know one thing: `HookServer` (frames from
 // `tkzmux-hook`) and `ClaudeSessionWatcher` (descriptor files). Neither knows what a `Session` is.
-// (`UsageReader` and the per-session sidecar reader are M3.5 / TKZ-25, still in the backlog; the
-// account-label half of TKZ-25 is here, in `accountLabels(home:fileManager:)`.)
+// (`UsageReader` and the per-session sidecar reader are M3.5, still in the backlog; the
+// account-label half of M3.5 is here, in `accountLabels(home:fileManager:)`.)
 // This type is the one place where their facts are attributed to rows and posted into the store,
 // and it holds the two pieces of state that belong to neither the services nor `AppState`:
 //
@@ -36,7 +36,7 @@ public final class ClaudeIntegration {
     public let hookServer: HookServer
     public let watcher: ClaudeSessionWatcher
     public let installer: ShimInstaller?
-    /// Reads the two statusline sidecars `tkzmux-hook statusline` writes (TKZ-32). Present even
+    /// Reads the two statusline sidecars `tkzmux-hook statusline` writes. Present even
     /// when nothing has been installed yet — the directory simply stays empty and the sweep keeps
     /// looking, so the badges light up the moment the user consents.
     public let statusline: StatuslineReader

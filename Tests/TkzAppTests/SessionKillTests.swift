@@ -76,7 +76,7 @@ struct SessionKillTests {
         var created: Session?
         store.update { created = $0.createSession(groupID: groupID, cwd: NSHomeDirectory()) }
         let id = try #require(created?.id)
-        // `Session.init` seeds its first leaf with the row's own uuid (TKZ-36).
+        // `Session.init` seeds its first leaf with the row's own uuid.
         let terminal = TerminalID(uuid: id.uuid)
 
         let pid = try host.open(

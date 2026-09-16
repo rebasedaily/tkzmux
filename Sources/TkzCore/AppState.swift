@@ -30,11 +30,11 @@ public struct AppState: Hashable, Sendable {
     /// The "auto-resume on launch" preference (M5.2): every restored row with a
     /// `claudeSessionId` gets `claude --resume` typed into a fresh shell when the app starts.
     public var autoResumeOnLaunch: Bool
-    /// Whether the statusline consent sheet has already been put to the user (TKZ-32). Asked once
+    /// Whether the statusline consent sheet has already been put to the user. Asked once
     /// and never again: declining is an answer, and re-asking every launch would be nagging. The
     /// menu command stays available either way.
     public var statuslineOffered: Bool
-    /// The release the user closed the sidebar's update card for (TKZ-50). That version never
+    /// The release the user closed the sidebar's update card for. That version never
     /// shows the card again; a newer one does. Durable, in `PersistedPreferences`.
     public var dismissedUpdateVersion: String?
     /// The token usage/spend feature's global on/off switch (design: token usage and spend per

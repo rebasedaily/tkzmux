@@ -1,5 +1,5 @@
 // StatuslineConsentTests — the one place tkzmux edits a file the user owns, so the gate around it
-// gets its own tests (TKZ-32).
+// gets its own tests.
 //
 // The sheet itself is an `NSAlert`, which never returns in a test process; `MainWindowController`
 // exposes `confirmInstallStatusline` / `confirmRemoveStatusline` as the injection points, the same

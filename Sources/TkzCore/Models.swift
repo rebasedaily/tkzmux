@@ -178,7 +178,7 @@ public struct Session: Hashable, Sendable, Identifiable {
     /// default; `true` = this session opted out. Never `false` — see
     /// `AppState.setSpendTrackingDisabled(_:_:)`, the only writer.
     public var spendTrackingDisabled: Bool?
-    /// This session posts no macOS notifications (TKZ-74): neither NEEDS YOU nor "finished". The
+    /// This session posts no macOS notifications: neither NEEDS YOU nor "finished". The
     /// badge and the tint are untouched. `nil` = not muted, the default; `true` = muted. Never
     /// `false` — see `AppState.setNotificationsMuted(_:_:)`, the only writer.
     public var notificationsMuted: Bool?
@@ -432,7 +432,7 @@ public struct LiveSessionState: Hashable, Sendable {
     public var lastStopMessage: String?
     /// Claude's own one-liner from the last permission / elicitation / agent-input `Notification`
     /// hook ("Claude needs your permission to use Bash") — the NEEDS YOU banner's body. Cleared
-    /// when the prompt is answered or the row is attended (TKZ-74).
+    /// when the prompt is answered or the row is attended.
     public var lastNotificationMessage: String?
     public var lastStopAt: Date?
     /// The most recent hook frame received for this session.
@@ -476,7 +476,7 @@ public struct LiveSessionState: Hashable, Sendable {
     /// everything forked from a pty shares the app's process coalition. `nil` until first sampled.
     /// Process state, never persisted. See docs/perf.md → *Session process memory*.
     public var subtreeFootprintBytes: UInt64?
-    /// Login-shell pid per pane (TKZ-36). `shellPid` is still the focused pane's, because the
+    /// Login-shell pid per pane. `shellPid` is still the focused pane's, because the
     /// status derivation and the row's identity are session-level by design; this map exists so
     /// that the things which walk the process tree — the port scanner and the hook relay's ppid
     /// fallback — can see a shell started in *any* pane, not only the focused one.
@@ -912,7 +912,7 @@ public struct UsageWindow: Hashable, Sendable, Codable {
 }
 
 /// The whole `usage-<key>.json` document, keyed in `AppState.usage` by `accountKey`. Written by
-/// `tkzmux-hook statusline`, reconciled and published by `StatuslineReader` (TKZ-32).
+/// `tkzmux-hook statusline`, reconciled and published by `StatuslineReader`.
 public struct UsageSnapshot: Hashable, Sendable, Codable {
     public var accountKey: String
     public var updatedAt: Date?
@@ -1104,7 +1104,7 @@ public struct PRInfo: Hashable, Sendable, Codable {
 // MARK: - Statusline sidecar
 
 /// `<support>/statusline/context-<session_id>.json`, the tkzmux-owned statusline contract
-/// written by `tkzmux-hook statusline` (TKZ-32). snake_case on the wire.
+/// written by `tkzmux-hook statusline`. snake_case on the wire.
 public struct SessionSidecar: Hashable, Sendable, Codable {
     public struct Model: Hashable, Sendable, Codable {
         public var id: String?
@@ -1324,7 +1324,7 @@ public struct HookEvent: Hashable, Sendable, Codable {
     public var notificationType: NotificationType?
     /// Up to 4 KiB of `Stop.last_assistant_message`.
     public var lastAssistantMessage: String?
-    /// `Notification.message` — Claude's own one-liner for the prompt, capped at 1 KiB (TKZ-74).
+    /// `Notification.message` — Claude's own one-liner for the prompt, capped at 1 KiB.
     public var message: String?
     /// `SessionStart.source`.
     public var source: String?

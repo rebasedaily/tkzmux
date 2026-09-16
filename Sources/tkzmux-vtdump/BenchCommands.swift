@@ -1,4 +1,4 @@
-// BenchCommands.swift — the multi-session measurement harness (M1.10 / TKZ-16).
+// BenchCommands.swift — the multi-session measurement harness (M1.10).
 //
 //   tkzmux-vtdump bench --sessions N [--busy K] [--seconds S] [--json out.json]
 //   tkzmux-vtdump bench-compress <file.tkzrec> [--repeats N] [--mode incremental|full]

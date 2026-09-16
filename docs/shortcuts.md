@@ -1,7 +1,7 @@
 # App shortcuts
 
 The cmux bindings the app ships with (design.md → Decisions → Shortcuts), owned as data by
-`Sources/TkzApp/Menus/ShortcutsTable.swift` (M2.4 / TKZ-20). The main menu (wave 3) is built from
+`Sources/TkzApp/Menus/ShortcutsTable.swift` (M2.4). The main menu (wave 3) is built from
 this table; nothing hard-codes a key equivalent.
 
 > `docs/keys.md` is a different document: it is **generated and CI-asserted** by
@@ -22,18 +22,18 @@ this table; nothing hard-codes a key equivalent.
 | `closeSession` | ⇧⌘W | Close the session, however many panes it has |
 | `selectSession1` … `selectSession9` | ⌘1 … ⌘9 | Select the n-th visible session |
 | `jumpToNeedsYou` | ⇧⌘U | Jump to the next session that needs you |
-| `notifications` | ⌘I | **No handler yet — hidden** (TKZ-55). See *Hidden commands* below |
-| `settings` | ⌘, | **No handler yet — hidden** (TKZ-35). See *Hidden commands* below |
+| `notifications` | ⌘I | **No handler yet — hidden**. See *Hidden commands* below |
+| `settings` | ⌘, | The Settings window (design 7a–d): General, Shell and Appearance pages. Every preference that used to be an app-menu checkmark lives here as a switch with a sentence — resume on launch, the periodic origin check, the "Claude finished" notification, token usage & spend, the status line per account, shell integration status and removal, the colour scheme. Esc or ⌘W closes it |
 | `openFolder` | ⌘O | Directory picker; the chosen folder becomes a group and `claude` starts in it — the same flow as ＋ New session… › In another repo… |
-| `reloadConfig` | ⇧⌘, | **No handler yet — hidden** (TKZ-56). See *Hidden commands* below |
+| `reloadConfig` | ⇧⌘, | **No handler yet — hidden**. See *Hidden commands* below |
 | `copyLastMessage` | ⇧⌘C | Copy the selected session's last Stop message (M3.4) |
 | `showFirstPrompt` | ⌥⌘P | Glass card over the terminal with the selected session's first prompt and Claude's recap (design 2c.5); again or Esc closes. Scrolling up a few rows in a Claude session *peeks* the same card without taking the keyboard; scrolling back down (or typing) hides it, and the chord pins it |
 | `showChanges` | ⇧⌘G | View-only changes viewer over the terminal (design 2c.2): the changed files of the selected session's repo with per-file `+/−`, each file's diff inline or split, against `HEAD` or the branch's upstream. Also opened by clicking the `+142 −38` / `12 files` chips in the status bar. Inside: ↑/↓ walk the files, Page Up/Down and Home/End scroll the diff, Esc, the header's ✕ or the chord again returns to the terminal. The artboard says ⌘D, which is *Split Vertically* here |
 | `rebaseOntoBase` | ⌥⌘R | The rebase sheet (design 5a/5b) for the selected session's branch: fetches the repo's base branch — `origin/HEAD`, else `origin/main`/`master`, else a local `main`/`master` — says how many commits it pulls in, and *Rebase* runs `git rebase --autostash` onto it, out of band. Also the amber `⤿ 7 behind main` chip in the status bar, shown only while the branch is behind its base. A rebase conflict aborts and restores the tree; if reapplying the autostashed changes conflicts instead, the rebase stands and the tree keeps those conflict markers with the change kept in `git stash` rather than being restored. The button is off while the row's Claude is working. The artboard says ⌘R, which is *Resume Session* here |
-| `toggleOriginCheck` | — | Fetch every session repo's base branch every 5 minutes so that chip stays honest without a manual fetch. **Off by default** (background network under your git credentials); app menu, with a checkmark |
-| `toggleDoneNotification` | — | Post a macOS notification when Claude finishes a turn in a session you are not looking at — the moment the row gets its *done* tint — with the first line of the reply as the body (TKZ-74). The same banner stays when the row ages into NEEDS YOU after 60 s, and goes away when you look at the row. **On by default**; app menu, with a checkmark. The **NEEDS YOU** banner (permission prompt, question, agent input; Claude's own line as the body; several flips in one tick share one "N sessions need you" banner) has no switch of its own — macOS's per-app notification setting is the master switch for both, and macOS asks for it once at launch |
-| `removeShellIntegration` | — | Delete the claude shim and the zsh/bash/fish wrappers under Application Support (M3.3, TKZ-33); app menu |
-| `statusLineIntegration` | — | Install or remove tkzmux's `statusLine` command, behind a consent sheet (TKZ-32); app menu |
+| — | Settings › General | *Check origin periodically*: fetch every session repo's base branch every 5 minutes so the `⤿ 7 behind main` chip stays honest without a manual fetch. **Off by default** (background network under your git credentials) |
+| — | Settings › General | *Notify when Claude finishes*: post a macOS notification when Claude finishes a turn in a session you are not looking at — the moment the row gets its *done* tint — with the first line of the reply as the body. The same banner stays when the row ages into NEEDS YOU after 60 s, and goes away when you look at the row. **On by default.** The **NEEDS YOU** banner (permission prompt, question, agent input; Claude's own line as the body; several flips in one tick share one "N sessions need you" banner) has no switch of its own — macOS's per-app notification setting is the master switch for both, and macOS asks for it once at launch |
+| — | Settings › Shell | *Remove shell integration*: delete the claude shim and the zsh/bash/fish wrappers under Application Support (M3.3) until the next launch, when they are installed again |
+| — | Settings › General | *Status line integration*, one row per account: install or remove tkzmux's `statusLine` command, behind a consent sheet |
 | `newTerminal` | ⌘T | Another terminal in this session, as a new tab |
 | `splitVertically` | ⌘D | Split the focused pane side by side (the toolbar's `◫`) |
 | `splitHorizontally` | ⇧⌘D | Split it stacked (the toolbar's `⬓`) |
@@ -49,14 +49,20 @@ this table; nothing hard-codes a key equivalent.
 
 A surface shows a command only when `MenuDispatcher` has a handler for it. `MainMenu.build` gives an
 action with no handler no menu item at all; the ⌘-hold cheat sheet walks that menu, and ⇧⌘P filters
-its command rows on the same set. So `notifications`, `settings` and `reloadConfig` are in the table
-above and in `ShortcutsTable`, but nowhere on screen — they were greyed out in the menu and *live*
-in the palette and the cheat sheet, where choosing them did nothing at all (TKZ-53).
+its command rows on the same set. So `notifications` and `reloadConfig` are in the table above and
+in `ShortcutsTable`, but nowhere on screen — they were greyed out in the menu and *live* in the
+palette and the cheat sheet, where choosing them did nothing at all. `settings` was the
+third until the Settings window gave it a handler.
 
 Their ids stay, because `AppState.shortcuts` is keyed by id and an override for an unknown one must
-keep parsing; their chords stay in `ShortcutsTable.defaults`, so ⌘I, ⌘, and ⇧⌘, are **reserved,
-not free**. Registering a handler is the whole of bringing one back — it reappears in the menu, the
+keep parsing; their chords stay in `ShortcutsTable.defaults`, so ⌘I and ⇧⌘, are **reserved, not
+free**. Registering a handler is the whole of bringing one back — it reappears in the menu, the
 palette and the cheat sheet at once, with no change here or to the table.
+
+The six preference toggles that were app-menu items until the Settings window (`toggleAutoResume`,
+`toggleSessionSpend`, `toggleOriginCheck`, `toggleDoneNotification`, `statusLineIntegration`,
+`removeShellIntegration`) are gone from the vocabulary: they are rows in the Settings window, not
+commands. An old override for one of those ids still parses and is simply never bound.
 
 ## Inside the search overlay (⌘F, design 2c.6)
 
@@ -92,12 +98,12 @@ applied over the defaults by `ShortcutsTable.resolved(state:)`:
 
 An override that collides with another action's binding is not rejected — the table has no opinion
 about that — so the two are resolved by menu order and one of them silently stops working. The
-example above used `cmd+t` and `alt+cmd+down` until TKZ-36 bound both to the terminal;
+example above used `cmd+t` and `alt+cmd+down` until the pane split bound both to the terminal;
 `AppState.fixture` carries the same three overrides and a test asserts the resolved fixture table
 has no two actions sharing a chord, because a `TKZMUX_FIXTURE` run is the one place a collision
 could be introduced without any menu being built.
 
-> ⌘T, ⌘D and the ⌥⌘ arrows were held unbound from M2.4 as "reserved for the terminal". TKZ-36 is
+> ⌘T, ⌘D and the ⌥⌘ arrows were held unbound from M2.4 as "reserved for the terminal". The pane split is
 > what they were reserved *for*, so they are bound now, and `nextSession`/`previousSession` remain
 > the two known actions with no default.
 

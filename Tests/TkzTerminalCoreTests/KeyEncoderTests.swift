@@ -1,4 +1,4 @@
-// KeyEncoderTests.swift — the encoder half of M1.7 (TKZ-13), headless.
+// KeyEncoderTests.swift — the encoder half of M1.7, headless.
 //
 // Also generates docs/keys.md: `TKZMUX_UPDATE_KEYS_DOC=1 swift test --filter TkzTerminalCoreTests`
 // rewrites the doc, a plain run asserts the committed doc still matches the encoder.

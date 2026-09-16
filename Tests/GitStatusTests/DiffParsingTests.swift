@@ -1,4 +1,4 @@
-// DiffParsingTests — the text half of the changes viewer (TKZ-58), against literal fixtures.
+// DiffParsingTests — the text half of the changes viewer, against literal fixtures.
 
 import Foundation
 import Testing
