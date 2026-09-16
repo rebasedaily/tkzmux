@@ -31,6 +31,11 @@
 // Returning 0 for a collapsed group would make every collapse a structural change and defeat the
 // design's central claim.
 //
+// **A dragged group is collapsed for the drag, in the outline only.** `.gap` drop feedback needs
+// the dragged thing to be one row (see the *Drag and drop* section), so `beginGroupDrag` collapses
+// the group without writing to the store, `collapsedForDrag` keeps `syncExpansion` from undoing
+// that mid-drag, and `endGroupDrag` restores the store's expansion once the drop has been applied.
+//
 // **The shadow tree.** By the time an observer runs, `store.state` is already the *new* state, so
 // the structural diff cannot ask the data source what the old rows were. `shadowGroups` /
 // `shadowSessions` are this controller's copy of what the outline view currently shows; the diff is
@@ -393,6 +398,12 @@ public final class SidebarViewController: NSViewController {
 
     private var isApplyingStoreSelection = false
     private var isApplyingStoreCollapse = false
+    /// The group collapsed in the outline — and only there — for the group drag in flight. `nil`
+    /// when no group drag is running. `syncExpansion` leaves this group alone until `endGroupDrag`.
+    /// See *A dragged group is collapsed for the drag* in the file header.
+    private var collapsedForDrag: GroupID?
+    /// `endGroupDrag()` ran while the drop's change set was still queued; finish after `apply(_:)`.
+    private var finishGroupDragAfterApply = false
     private var appliedSelection: SessionID?
     private var isOccluded = false
     private var occlusionWindow: NSWindow?
@@ -552,6 +563,9 @@ public final class SidebarViewController: NSViewController {
         if change.selection { syncSelectionToOutline() }
         if change.structure || !change.sessions.isEmpty { updateSummary() }
         if change.chrome { applyUpdateNotice() }
+        // The drag ended before its drop's change set arrived; now that the one-row `moveItem`
+        // has run, the dragged group can have its rows back.
+        if finishGroupDragAfterApply { finishGroupDrag() }
     }
 
     // MARK: Update card
@@ -687,11 +701,15 @@ public final class SidebarViewController: NSViewController {
 
     /// Mirrors `Group.isCollapsed` onto the outline view. Guarded so the resulting
     /// `outlineViewItemDidExpand/Collapse` notifications do not write straight back into the store.
+    ///
+    /// The group being dragged is skipped: it is collapsed for the drag regardless of what the store
+    /// says, and `applyStructure` ends here for *every* group — including on the drop's own change
+    /// set, which must move it while it is still one row. `finishGroupDrag` re-syncs it afterwards.
     private func syncExpansion(for ids: [GroupID]) {
         isApplyingStoreCollapse = true
         defer { isApplyingStoreCollapse = false }
         for id in ids {
-            guard let group = store.state.groups[id] else { continue }
+            guard id != collapsedForDrag, let group = store.state.groups[id] else { continue }
             let item = self.item(.group(id))
             let expanded = outline.isItemExpanded(item)
             if group.isCollapsed, expanded {
@@ -763,7 +781,7 @@ public final class SidebarViewController: NSViewController {
         }
 
         // 3. Moves — the id sets now match; only the order can differ.
-        move(&groups, to: newGroups, parent: nil)
+        move(&groups, to: newGroups, parent: nil, prefer: collapsedForDrag)
         for groupID in newGroups {
             var current = sessions[groupID] ?? []
             move(&current, to: newSessions[groupID] ?? [], parent: item(.group(groupID)))
@@ -793,7 +811,37 @@ public final class SidebarViewController: NSViewController {
         syncSelectionToOutline(scroll: false)
     }
 
-    private func move<ID: Equatable>(_ current: inout [ID], to wanted: [ID], parent: SidebarItem?) {
+    /// Reorders `current` into `wanted` with `moveItem`, one row at a time.
+    ///
+    /// **One displaced element is one move.** A drag displaces exactly one id, and that must
+    /// reach the outline as a single `moveItem` of *that* id: `.gap` feedback expects the dragged
+    /// row to land in the gap it opened, so walking the list and pulling each neighbour up instead
+    /// (the fallback below) would move the neighbours' whole blocks through it. When two ids can
+    /// each explain the difference — a neighbour swap — `prefer` (the group collapsed for the drag)
+    /// wins, so the single row moves and the expanded neighbour stays put.
+    private func move<ID: Equatable>(
+        _ current: inout [ID], to wanted: [ID], parent: SidebarItem?, prefer: ID? = nil
+    ) {
+        guard current != wanted, current.count == wanted.count else {
+            return cascade(&current, to: wanted, parent: parent)
+        }
+        let candidates = current.filter { id in
+            guard let from = current.firstIndex(of: id), let to = wanted.firstIndex(of: id) else { return false }
+            var trial = current
+            trial.remove(at: from)
+            trial.insert(id, at: to)
+            return trial == wanted
+        }
+        guard let id = candidates.first(where: { $0 == prefer }) ?? candidates.first,
+            let from = current.firstIndex(of: id), let to = wanted.firstIndex(of: id)
+        else { return cascade(&current, to: wanted, parent: parent) }
+        outline.moveItem(at: from, inParent: parent, to: to, inParent: parent)
+        current.remove(at: from)
+        current.insert(id, at: to)
+    }
+
+    /// The general case: for each position, pull the wanted id up to it.
+    private func cascade<ID: Equatable>(_ current: inout [ID], to wanted: [ID], parent: SidebarItem?) {
         for (target, id) in wanted.enumerated() {
             guard current.indices.contains(target), current[target] != id,
                 let from = current.firstIndex(of: id)
@@ -1002,11 +1050,26 @@ extension SidebarViewController: NSOutlineViewDataSource {
 // sidebar shows.
 //
 // **Group headers drag too**, under their own pasteboard type, and a group drop is
-// `AppState.moveGroup` and nothing else — the header and its rows move through `applyStructure()`'s
-// ordinary `moveItem` pass. A group never nests, so every drop lands in the *root* list:
+// `AppState.moveGroup` and nothing else — the header moves through `applyStructure()`'s ordinary
+// `moveItem` pass. A group never nests, so every drop lands in the *root* list:
 // `groupDropIndex(atY:dragging:)` picks the slot between headers from the pointer position (see its
-// doc comment for why AppKit's proposed item is ignored) and `validateDrop` retargets to `(nil, slot)`. Because the proposal is never an expandable item, a group drag does not spring-load
+// doc comment for why AppKit's proposed item is ignored) and `validateDrop` retargets to
+// `(nil, slot)`. Because the proposal is never an expandable item, a group drag does not spring-load
 // collapsed groups open. The same displayed-vs-store off-by-one applies — `groupStoreIndex` rebases.
+//
+// **A group is dragged as one row.** `.gap` feedback turns the dragged row into the gap at drag
+// start and expects the drop to consume that gap with a *single-row* insert or move. A session row
+// is exactly that. An expanded group was not: only its header became the gap while its session rows
+// stayed on screen, and the drop's `moveItem` then moved the header plus every child row in one
+// call — which desynchronised AppKit's gap bookkeeping, left the gap behind as an empty row after
+// the drop, and made the *next* drag start crash inside `NSTableRowHeightData` on the stale gap
+// index (2026-09-16). So `beginGroupDrag` collapses the dragged group in the outline — never in the
+// store — from `pasteboardWriterForItem`, the first callback AppKit makes once the drag threshold
+// is passed (the gap is already open at the header by then; the collapse is a deletion below it,
+// which AppKit's row-height storage adjusts for), and `endGroupDrag` (from
+// `draggingSession:endedAt:`) gives it its rows back once the drop's change set has been applied.
+// In between, `syncExpansion` leaves that group alone, and `applyStructure` moves it as *one* row:
+// `move(_:to:parent:prefer:)` moves the displaced id itself rather than cascading its neighbours.
 //
 // **A collapsed group is a valid destination**, and the only thing it can offer is "on the header",
 // which appends. Hovering one mid-drag also lets AppKit spring-load it open, which runs the ordinary
@@ -1116,6 +1179,10 @@ extension SidebarViewController {
     ///  * **The geometry is the model's, not the screen's.** Block heights come from the row heights
     ///    the outline was told, so the `.gap` feedback sliding rows out from under the pointer cannot
     ///    flip the answer back and forth — the result is a monotonic function of `y`.
+    ///
+    /// **The dragged group is a bare header.** It is collapsed in the outline for the drag
+    /// (`beginGroupDrag`), so its session rows are not on screen and its block is one
+    /// `groupRowHeight`, whatever the store says about its `isCollapsed`.
     func groupDropIndex(atY y: CGFloat, dragging dragged: GroupID) -> Int {
         let state = store.state
         let groups = state.orderedGroups
@@ -1126,7 +1193,7 @@ extension SidebarViewController {
         var slot = from ?? groups.count
         for (index, group) in groups.enumerated() {
             var height = header
-            if !group.isCollapsed {
+            if !group.isCollapsed, group.id != dragged {
                 for session in state.sessions(in: group.id) {
                     height += shadowRowHeights[session.id] ?? rowHeight(for: session)
                 }
@@ -1154,6 +1221,51 @@ extension SidebarViewController {
         guard let from = store.state.orderedGroups.map(\.id).firstIndex(of: dragged) else { return displayed }
         return displayed > from ? displayed - 1 : displayed
     }
+
+    // MARK: Group drag lifecycle
+
+    /// Collapses `id` in the outline for the duration of a drag, so the `.gap` feedback lifts one
+    /// header row out and the drop is a one-row `moveItem`. Outline only: the store's `isCollapsed`
+    /// is untouched and the header is not reloaded, so its chevron keeps pointing down.
+    ///
+    /// Idempotent for a group that is already collapsed. A drag that never reached
+    /// `draggingSession:endedAt:` (AppKit asked for the writer and then gave up) is finished first.
+    func beginGroupDrag(_ id: GroupID) {
+        if collapsedForDrag != nil { finishGroupDrag() }
+        collapsedForDrag = id
+        let item = self.item(.group(id))
+        guard outline.isItemExpanded(item) else { return }
+        isApplyingStoreCollapse = true
+        defer { isApplyingStoreCollapse = false }
+        // No animation: the gap is already open and the drag session starts right after this; an
+        // in-flight row animation under it is exactly the kind of interleaving this exists to avoid.
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0
+            context.allowsImplicitAnimation = false
+            outline.collapseItem(item)
+        }
+    }
+
+    /// The drag session ended, accepted or cancelled. The group gets its rows back once the drop's
+    /// `moveGroup` change set has been applied — while it is still one row. `AppStore.update` only
+    /// queues, and whether that delivery lands before or after `draggingSession:endedAt:` is not
+    /// guaranteed, so a pending change set defers the finish to the end of `apply(_:)`.
+    func endGroupDrag() {
+        guard collapsedForDrag != nil else { return }
+        if store.hasPendingChanges { finishGroupDragAfterApply = true } else { finishGroupDrag() }
+    }
+
+    /// Hands the dragged group back to the store's expansion state. A group removed mid-drag is
+    /// skipped by `syncExpansion`; one the store says is collapsed stays collapsed.
+    private func finishGroupDrag() {
+        finishGroupDragAfterApply = false
+        guard let id = collapsedForDrag else { return }
+        collapsedForDrag = nil
+        syncExpansion(for: [id])
+        // Collapsing dropped the outline's selection if the selected row was inside the group,
+        // while the store kept it — the same hand-back `applyGroups` does.
+        syncSelectionToOutline(scroll: false)
+    }
 }
 
 extension SidebarViewController {
@@ -1164,9 +1276,25 @@ extension SidebarViewController {
         let pasteboardItem = NSPasteboardItem()
         switch kind {
         case .session(let id): pasteboardItem.setString(id.rawValue, forType: .tkzSidebarSession)
-        case .group(let id): pasteboardItem.setString(id.rawValue, forType: .tkzSidebarGroup)
+        case .group(let id):
+            pasteboardItem.setString(id.rawValue, forType: .tkzSidebarGroup)
+            // The one deliberate side effect in a data-source query, and the earliest hook there
+            // is: `-[NSTableView _performDragFromMouseDown:]` decides the drag threshold, turns the
+            // header row into the gap, and only then asks for the writer — nothing of ours runs in
+            // between. Collapsing here deletes the rows *below* the gap, which the row-height
+            // storage adjusts for (`_gapRowAdjustedRangeForDeletionRange:`), exactly as it does
+            // for a structural change landing mid-drag.
+            beginGroupDrag(id)
         }
         return pasteboardItem
+    }
+
+    public func outlineView(
+        _ outlineView: NSOutlineView, draggingSession session: NSDraggingSession,
+        endedAt screenPoint: NSPoint, operation: NSDragOperation
+    ) {
+        // Accepted or cancelled (`operation == []`) alike: the gap is closed either way.
+        endGroupDrag()
     }
 
     public func outlineView(

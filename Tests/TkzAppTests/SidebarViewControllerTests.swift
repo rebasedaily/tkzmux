@@ -1132,6 +1132,9 @@ struct SidebarDragAndDropTests {
             to: #selector(NSOutlineViewDataSource.outlineView(_:validateDrop:proposedItem:proposedChildIndex:))))
         #expect(controller.responds(
             to: #selector(NSOutlineViewDataSource.outlineView(_:acceptDrop:item:childIndex:))))
+        // Without this one a dragged group would stay collapsed after the drop.
+        #expect(controller.responds(
+            to: #selector(NSOutlineViewDataSource.outlineView(_:draggingSession:endedAt:operation:))))
     }
 
     @Test("A collapsed group can only be appended to — no child index points into it")
@@ -1174,14 +1177,20 @@ struct SidebarDragAndDropTests {
 
     // MARK: Groups
 
-    /// The outline's (flipped) vertical extent of `id`'s header and, when expanded, its session rows.
+    /// The outline's (flipped) vertical extent of `id`'s header and, when its rows are on screen,
+    /// its session rows. Decided from the outline, not the store: a group collapsed for a drag
+    /// (`beginGroupDrag`) is still expanded in the store.
     static func block(_ harness: SidebarViewControllerTests.Harness, _ id: GroupID) -> (header: NSRect, bottom: CGFloat) {
         let controller = harness.controller
         let header = harness.outline.rect(ofRow: controller.row(forGroup: id))
-        let last = harness.store.state.groups[id]?.isCollapsed == true
-            ? nil : harness.store.state.sessions(in: id).last
-        let bottom = last.map { harness.outline.rect(ofRow: controller.row(forSession: $0.id)).maxY } ?? header.maxY
+        let lastRow = harness.store.state.sessions(in: id).last.map { controller.row(forSession: $0.id) } ?? -1
+        let bottom = lastRow >= 0 ? harness.outline.rect(ofRow: lastRow).maxY : header.maxY
         return (header, bottom)
+    }
+
+    /// The rows the outline shows for `id`'s sessions — empty while the group is collapsed.
+    static func sessionRows(_ harness: SidebarViewControllerTests.Harness, _ id: GroupID) -> [Int] {
+        harness.store.state.sessions(in: id).map { harness.controller.row(forSession: $0.id) }.filter { $0 >= 0 }
     }
 
     /// A `y` at or past the bottom of the whole list — "below everything" for a group drag.
@@ -1208,7 +1217,12 @@ struct SidebarDragAndDropTests {
         let harness = SidebarViewControllerTests.makeHarness()
         let controller = harness.controller
         let groups = harness.store.state.orderedGroups.map(\.id)
+        // The drag starts: the dragged group is one header row, and the second group moves up
+        // under it. Measured *after* that, the way the pointer meets the rows on screen.
+        controller.beginGroupDrag(groups[0])
+        harness.window.layoutIfNeeded()
         let second = Self.block(harness, groups[1])
+        #expect(second.header.minY == CGFloat(SidebarMetrics.groupRowHeight))
 
         // Anywhere over its own block, or above the second group's header midline: no move.
         #expect(controller.groupDropIndex(atY: 1, dragging: groups[0]) == 0)
@@ -1223,6 +1237,13 @@ struct SidebarDragAndDropTests {
         let at = controller.groupStoreIndex(forDisplayed: slot, dragging: groups[0])
         harness.mutate { $0.moveGroup(groups[0], to: at) }
         #expect(Array(harness.store.state.orderedGroups.map(\.id).prefix(2)) == [groups[1], groups[0]])
+        // The structural apply moved it while it was still one row.
+        #expect(Self.sessionRows(harness, groups[0]).isEmpty)
+
+        controller.endGroupDrag()
+        #expect(harness.outline.isItemExpanded(controller.item(.group(groups[0]))))
+        #expect(harness.store.state.groups[groups[0]]?.isCollapsed == false)
+        #expect(Self.sessionRows(harness, groups[0]).count == harness.store.state.sessions(in: groups[0]).count)
     }
 
     @Test("Dragging the second group up swaps with the first as soon as the pointer enters its last row")
@@ -1230,11 +1251,14 @@ struct SidebarDragAndDropTests {
         let harness = SidebarViewControllerTests.makeHarness()
         let controller = harness.controller
         let groups = harness.store.state.orderedGroups.map(\.id)
+        controller.beginGroupDrag(groups[1])
+        harness.window.layoutIfNeeded()
         let first = Self.block(harness, groups[0])
         let header = CGFloat(SidebarMetrics.groupRowHeight)
 
         // Over its own header, or below the entry line at the first group's bottom: no move.
         let own = Self.block(harness, groups[1])
+        #expect(own.bottom == own.header.maxY)  // one row while it drags
         #expect(controller.groupDropIndex(atY: own.header.midY, dragging: groups[1]) == 1)
         #expect(controller.groupDropIndex(atY: first.bottom - header / 2, dragging: groups[1]) == 1)
         // Half a header's height into the first group from below: above it.
@@ -1245,6 +1269,10 @@ struct SidebarDragAndDropTests {
         let at = controller.groupStoreIndex(forDisplayed: slot, dragging: groups[1])
         harness.mutate { $0.moveGroup(groups[1], to: at) }
         #expect(Array(harness.store.state.orderedGroups.map(\.id).prefix(2)) == [groups[1], groups[0]])
+
+        controller.endGroupDrag()
+        #expect(harness.outline.isItemExpanded(controller.item(.group(groups[1]))))
+        #expect(Self.sessionRows(harness, groups[1]).count == harness.store.state.sessions(in: groups[1]).count)
     }
 
     @Test("A collapsed neighbour is passed at its header's midline, in either direction")
@@ -1308,6 +1336,11 @@ struct SidebarDragAndDropTests {
         harness.mutate { $0.select(selected) }
         harness.outline.resetCounters()
 
+        // The fixture's last group (Playground) is already collapsed: the drag changes nothing.
+        controller.beginGroupDrag(dragged)
+        #expect(harness.outline.movedItemCalls.isEmpty)
+        #expect(harness.outline.removedItemCalls.isEmpty)
+
         let slot = controller.groupDropIndex(atY: 0, dragging: dragged)
         #expect(slot == 0)
         let at = controller.groupStoreIndex(forDisplayed: slot, dragging: dragged)
@@ -1315,13 +1348,25 @@ struct SidebarDragAndDropTests {
 
         #expect(harness.store.state.orderedGroups.map(\.id) == [dragged] + before.dropLast())
         #expect(harness.outline.reloadDataCallCount == 0)
-        #expect(!harness.outline.movedItemCalls.isEmpty)
+        // Exactly one root-level move: the header row, nothing else.
+        #expect(harness.outline.movedItemCalls.count == 1)
+        #expect(harness.outline.movedItemCalls.first?.parent == nil)
+        #expect(harness.outline.movedItemCalls.first?.from == before.count - 1)
+        #expect(harness.outline.movedItemCalls.first?.to == 0)
+        #expect(harness.outline.insertedItemCalls.isEmpty)
+        #expect(harness.outline.removedItemCalls.isEmpty)
         // The outline agrees with the store, header by header.
         let headerRows = harness.store.state.orderedGroups.map { controller.row(forGroup: $0.id) }
         #expect(headerRows == headerRows.sorted())
         #expect(controller.row(forGroup: dragged) == 0)
         // Moving groups does not disturb the selection.
         #expect(harness.store.state.selection == selected)
+        #expect(harness.outline.selectedRow == controller.row(forSession: selected))
+
+        controller.endGroupDrag()
+        // Still collapsed on both sides: the drag never expanded what the store keeps collapsed.
+        #expect(harness.store.state.groups[dragged]?.isCollapsed == true)
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(dragged))))
         #expect(harness.outline.selectedRow == controller.row(forSession: selected))
     }
 
@@ -1332,6 +1377,14 @@ struct SidebarDragAndDropTests {
         let before = harness.store.state.orderedGroups.map(\.id)
         let dragged = before[0]
         let rows = harness.store.state.sessions(in: dragged).map(\.id)
+        let allRows = harness.outline.numberOfRows
+
+        controller.beginGroupDrag(dragged)
+        // One header row now — in the outline only; the store still says expanded.
+        #expect(harness.outline.numberOfRows == allRows - rows.count)
+        #expect(Self.sessionRows(harness, dragged).isEmpty)
+        #expect(harness.store.state.groups[dragged]?.isCollapsed == false)
+        harness.outline.resetCounters()
 
         let slot = controller.groupDropIndex(atY: Self.belowEverything(harness), dragging: dragged)
         #expect(slot == before.count)
@@ -1343,6 +1396,189 @@ struct SidebarDragAndDropTests {
         #expect(
             harness.store.state.orderedGroups.map { controller.row(forGroup: $0.id) }
                 == harness.store.state.orderedGroups.map { controller.row(forGroup: $0.id) }.sorted())
+        // The drop is a single-row move, and the group is still one row after it.
+        #expect(harness.outline.movedItemCalls.count == 1)
+        #expect(harness.outline.movedItemCalls.first?.parent == nil)
+        #expect(harness.outline.reloadDataCallCount == 0)
+        #expect(harness.outline.insertedItemCalls.isEmpty)
+        #expect(harness.outline.removedItemCalls.isEmpty)
+        #expect(Self.sessionRows(harness, dragged).isEmpty)
+
+        controller.endGroupDrag()
+        #expect(harness.outline.numberOfRows == allRows)
+        let back = Self.sessionRows(harness, dragged)
+        #expect(back.count == rows.count)
+        #expect(back == back.sorted())
+        #expect(back.first == controller.row(forGroup: dragged) + 1)
+    }
+
+    // MARK: Group drag lifecycle
+
+    @Test("Asking for a group's pasteboard writer collapses it for the drag — in the outline, not the store")
+    func groupWriterCollapsesTheGroupForTheDrag() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let group = harness.store.state.orderedGroups[0].id
+        let session = harness.store.state.sessions(in: group)[0].id
+        harness.outline.resetCounters()
+
+        _ = controller.outlineView(harness.outline, pasteboardWriterForItem: controller.item(.group(group)))
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(group))))
+        #expect(Self.sessionRows(harness, group).isEmpty)
+        #expect(harness.store.state.groups[group]?.isCollapsed == false)
+        // No write-back: flushing delivers nothing that re-syncs the group.
+        #expect(!harness.store.hasPendingChanges)
+        harness.store.flush()
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(group))))
+        #expect(harness.outline.reloadDataCallCount == 0)
+        #expect(harness.outline.insertedItemCalls.isEmpty)
+        #expect(harness.outline.removedItemCalls.isEmpty)
+        controller.endGroupDrag()
+
+        // A session's writer is just a writer.
+        let rowsBefore = harness.outline.numberOfRows
+        _ = controller.outlineView(harness.outline, pasteboardWriterForItem: controller.item(.session(session)))
+        #expect(harness.outline.numberOfRows == rowsBefore)
+        #expect(harness.outline.isItemExpanded(controller.item(.group(group))))
+    }
+
+    @Test("Ending a group drag re-expands the group and hands the selection back to the outline")
+    func endingAGroupDragHandsTheSelectionBack() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let group = harness.store.state.orderedGroups[1].id
+        let selected = harness.store.state.sessions(in: group)[1].id
+        harness.mutate { $0.select(selected) }
+        #expect(harness.outline.selectedRow == controller.row(forSession: selected))
+
+        controller.beginGroupDrag(group)
+        #expect(harness.outline.selectedRow == -1)
+        #expect(harness.store.state.selection == selected)
+
+        controller.endGroupDrag()
+        #expect(harness.outline.isItemExpanded(controller.item(.group(group))))
+        #expect(harness.outline.selectedRow == controller.row(forSession: selected))
+        #expect(harness.outline.selectedRow >= 0)
+    }
+
+    @Test("A cancelled group drag puts the rows back where they were")
+    func cancelledGroupDragRestoresTheRows() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let group = harness.store.state.orderedGroups[2].id
+        let before = Self.sessionRows(harness, group)
+        let order = harness.store.state.orderedGroups.map(\.id)
+        harness.outline.resetCounters()
+
+        controller.beginGroupDrag(group)
+        controller.endGroupDrag()
+        #expect(Self.sessionRows(harness, group) == before)
+        #expect(harness.store.state.orderedGroups.map(\.id) == order)
+        #expect(harness.outline.movedItemCalls.isEmpty)
+        #expect(harness.outline.reloadDataCallCount == 0)
+    }
+
+    @Test("The drop's change set is applied while the group is still one row, then it re-expands")
+    func dropChangeSetIsAppliedBeforeTheGroupReExpands() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let group = harness.store.state.orderedGroups[0].id
+        controller.beginGroupDrag(group)
+        harness.outline.resetCounters()
+
+        // `acceptDrop` queues the move; AppKit can end the drag session before it is delivered.
+        harness.store.update { $0.moveGroup(group, to: 2) }
+        #expect(harness.store.hasPendingChanges)
+        controller.endGroupDrag()
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(group))))
+        #expect(harness.outline.movedItemCalls.isEmpty)
+
+        harness.store.flush()
+        harness.window.layoutIfNeeded()
+        #expect(harness.outline.movedItemCalls.count == 1)
+        #expect(harness.outline.movedItemCalls.first?.parent == nil)
+        #expect(harness.outline.isItemExpanded(controller.item(.group(group))))
+        #expect(controller.row(forGroup: group) > controller.row(forGroup: harness.store.state.orderedGroups[1].id))
+        #expect(Self.sessionRows(harness, group).count == harness.store.state.sessions(in: group).count)
+    }
+
+    @Test("Store changes arriving mid-drag leave the dragged group collapsed")
+    func storeChangesMidDragLeaveTheGroupCollapsed() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let groups = harness.store.state.orderedGroups.map(\.id)
+        controller.beginGroupDrag(groups[0])
+
+        // Structural (`applyStructure` ends by syncing every group's expansion)...
+        harness.mutate { _ = $0.createSession(groupID: groups[2], cwd: "/tmp/mid-drag") }
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(groups[0]))))
+        // ...and a `groups` change on the dragged group itself (`applyGroups`).
+        harness.mutate { $0.renameGroup(groups[0], name: "Renamed mid-drag") }
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(groups[0]))))
+        #expect(harness.store.state.groups[groups[0]]?.isCollapsed == false)
+
+        controller.endGroupDrag()
+        #expect(harness.outline.isItemExpanded(controller.item(.group(groups[0]))))
+    }
+
+    @Test("A group removed mid-drag ends the drag cleanly, and the next drag works")
+    func groupRemovedMidDragEndsCleanly() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let groups = harness.store.state.orderedGroups.map(\.id)
+        controller.beginGroupDrag(groups[1])
+        harness.mutate { $0.removeGroup(groups[1]) }
+        controller.endGroupDrag()
+
+        let visible = harness.store.state.orderedGroups.reduce(0) { count, group in
+            count + 1 + (group.isCollapsed ? 0 : harness.store.state.sessions(in: group.id).count)
+        }
+        #expect(harness.outline.numberOfRows == visible)
+
+        controller.beginGroupDrag(groups[0])
+        #expect(Self.sessionRows(harness, groups[0]).isEmpty)
+        controller.endGroupDrag()
+        #expect(Self.sessionRows(harness, groups[0]).count == harness.store.state.sessions(in: groups[0]).count)
+    }
+
+    @Test("Swapping neighbours moves the dragged group's one row, not the expanded neighbour's block")
+    func neighbourSwapMovesTheDraggedRow() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let groups = harness.store.state.orderedGroups.map(\.id)
+        // Either group could explain [g1, g0]; the one collapsed for the drag must be the one that moves.
+        controller.beginGroupDrag(groups[1])
+        harness.outline.resetCounters()
+        harness.mutate { $0.moveGroup(groups[1], to: 0) }
+        #expect(harness.outline.movedItemCalls.count == 1)
+        #expect(harness.outline.movedItemCalls.first?.from == 1)
+        #expect(harness.outline.movedItemCalls.first?.to == 0)
+        controller.endGroupDrag()
+
+        // And the other way round, dragging the top one down onto its neighbour.
+        let now = harness.store.state.orderedGroups.map(\.id)
+        controller.beginGroupDrag(now[0])
+        harness.outline.resetCounters()
+        harness.mutate { $0.moveGroup(now[0], to: 1) }
+        #expect(harness.outline.movedItemCalls.count == 1)
+        #expect(harness.outline.movedItemCalls.first?.from == 0)
+        #expect(harness.outline.movedItemCalls.first?.to == 1)
+        controller.endGroupDrag()
+        #expect(harness.store.state.orderedGroups.map(\.id) == groups)
+        #expect(Self.sessionRows(harness, groups[0]).count == harness.store.state.sessions(in: groups[0]).count)
+    }
+
+    @Test("Beginning a second drag finishes one whose session never began")
+    func aSecondBeginFinishesTheFirst() {
+        let harness = SidebarViewControllerTests.makeHarness()
+        let controller = harness.controller
+        let groups = harness.store.state.orderedGroups.map(\.id)
+        controller.beginGroupDrag(groups[0])
+        controller.beginGroupDrag(groups[1])
+        #expect(harness.outline.isItemExpanded(controller.item(.group(groups[0]))))
+        #expect(!harness.outline.isItemExpanded(controller.item(.group(groups[1]))))
+        controller.endGroupDrag()
+        #expect(harness.outline.isItemExpanded(controller.item(.group(groups[1]))))
     }
 
     @Test("A drop on a group header appends; a drop between its rows takes that slot")
