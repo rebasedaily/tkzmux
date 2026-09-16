@@ -185,7 +185,7 @@ public struct ShimInstaller: Sendable {
 
     /// Deletes only what the installer itself wrote: `bin/`, the wrapper directories (`zsh/`,
     /// `bash/`, `fish/`), `VERSION`. Never touches `sessions/`, `state.json`/`state.json.bak`, or
-    /// `tkzmux.sock`.
+    /// the instance sockets (`tkzmux-<pid>.sock`).
     public func remove(fileManager: FileManager = .default) throws {
         for url in [binDirectory] + wrapperDirectories + [versionURL] {
             if fileManager.fileExists(atPath: url.path) {

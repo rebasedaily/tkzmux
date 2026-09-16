@@ -265,4 +265,71 @@ private func connectBlocking(fd: Int32, path: String) throws {
         let frames = await collector.waitFor(count: 1)
         #expect(frames.count == 1)
     }
+
+    /// Sockets are named per instance pid, so a crashed instance leaves one behind under a name
+    /// no later launch reuses. The sweep removes exactly those: a dead instance socket goes, a
+    /// live sibling (another running tkzmux) stays and keeps working, our own path is skipped,
+    /// and files that are not instance sockets — the legacy `tkzmux.sock`, anything else — are
+    /// never touched.
+    @Test func staleSiblingSocketsAreSweptLiveOnesKept() async throws {
+        let dir = try makeSocketDir()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // A crashed instance: bind-and-close leaves the file with nobody listening.
+        let stale = dir.appendingPathComponent("tkzmux-111.sock")
+        let staleFD = socket(AF_UNIX, SOCK_STREAM, 0)
+        #expect(staleFD >= 0)
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let stalePath = stale.path
+        withUnsafeMutableBytes(of: &addr.sun_path) { raw in
+            stalePath.withCString { cstr in
+                raw.copyMemory(from: UnsafeRawBufferPointer(start: cstr, count: min(stalePath.utf8.count + 1, raw.count)))
+            }
+        }
+        let bindResult = withUnsafePointer(to: &addr) { p -> Int32 in
+            p.withMemoryRebound(to: sockaddr.self, capacity: 1) { sp in
+                Darwin.bind(staleFD, sp, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
+        #expect(bindResult == 0)
+        close(staleFD)
+
+        // A running sibling.
+        let live = dir.appendingPathComponent("tkzmux-222.sock")
+        let collector = FrameCollector()
+        let sibling = HookServer(socketPath: live) { collector.append($0) }
+        try sibling.start()
+        defer { sibling.stop() }
+
+        // Not instance sockets: never candidates, whatever they contain.
+        let legacy = dir.appendingPathComponent("tkzmux.sock")
+        let notes = dir.appendingPathComponent("notes.txt")
+        try Data("x".utf8).write(to: legacy)
+        try Data("y".utf8).write(to: notes)
+        // Our own name, not yet bound: skipped even though nothing listens on it.
+        let own = dir.appendingPathComponent("tkzmux-333.sock")
+        try Data().write(to: own)
+
+        let removed = HookServer.sweepStaleInstanceSockets(in: dir, except: own)
+        #expect(removed == ["tkzmux-111.sock"])
+        #expect(!FileManager.default.fileExists(atPath: stale.path))
+        #expect(FileManager.default.fileExists(atPath: live.path))
+        #expect(FileManager.default.fileExists(atPath: legacy.path))
+        #expect(FileManager.default.fileExists(atPath: notes.path))
+        #expect(FileManager.default.fileExists(atPath: own.path))
+
+        // The sibling was probed, not disturbed.
+        try sendLine(#"{"v":1,"type":"hook","event":"Stop","sid":"","ppid":1,"ts":1,"payload":{}}"# + "\n", to: live)
+        let frames = await collector.waitFor(count: 1)
+        #expect(frames.count == 1)
+
+        // A second sweep has nothing left to do, and our own server then starts on its name
+        // (its own start replaces the dead placeholder).
+        #expect(HookServer.sweepStaleInstanceSockets(in: dir, except: own).isEmpty)
+        let server = HookServer(socketPath: own) { collector.append($0) }
+        try server.start()
+        defer { server.stop() }
+        #expect(server.isRunning)
+    }
 }

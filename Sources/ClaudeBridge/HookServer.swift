@@ -147,9 +147,18 @@ public final class HookServer: Sendable {
     /// that fails do we know it's safe to `unlink` — a live server's socket must never be removed
     /// out from under it.
     private func removeStaleSocketIfNeeded(at path: String) {
-        guard FileManager.default.fileExists(atPath: path) else { return }
+        if HookServer.removeIfStale(at: path) {
+            logger.info("removing stale hook socket at \(path, privacy: .public)")
+        }
+    }
+
+    /// Unlinks the socket file at `path` when nothing is listening on it. Returns whether a file
+    /// was removed. A missing file, a probe failure, or a live listener all leave it alone.
+    @discardableResult
+    static func removeIfStale(at path: String) -> Bool {
+        guard FileManager.default.fileExists(atPath: path) else { return false }
         let probeFD = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard probeFD >= 0 else { return }
+        guard probeFD >= 0 else { return false }
         defer { close(probeFD) }
 
         var addr = HookServer.makeSockaddr(path: path)
@@ -158,10 +167,32 @@ public final class HookServer: Sendable {
                 connect(probeFD, sp, socklen_t(MemoryLayout<sockaddr_un>.size))
             }
         }
-        if result != 0 {
-            logger.info("removing stale hook socket at \(path, privacy: .public)")
-            unlink(path)
+        guard result != 0 else { return false }
+        return unlink(path) == 0
+    }
+
+    /// Removes every instance socket (`HookSocket.isInstanceSocket`) in `directory` that nobody
+    /// listens on, and returns the file names it removed. Sockets are named per instance pid, so
+    /// a crash or `kill -9` leaves one behind under a name no later launch reuses — this is what
+    /// picks those up. `except` (our own path, which `start()` probes itself) and anything that is
+    /// not an instance socket — the legacy `tkzmux.sock`, `state.json` — are never touched, and a
+    /// sibling with a live listener (another running tkzmux) survives its probe.
+    @discardableResult
+    public static func sweepStaleInstanceSockets(in directory: URL, except own: URL? = nil) -> [String] {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+            return []
         }
+        let logger = Logger(subsystem: "se.tkz.tkzmux", category: "hookserver")
+        var removed: [String] = []
+        for name in names.sorted() where HookSocket.isInstanceSocket(name) {
+            let url = directory.appending(path: name, directoryHint: .notDirectory)
+            if let own, url.path == own.path { continue }
+            if removeIfStale(at: url.path) {
+                logger.info("removed stale hook socket \(name, privacy: .public)")
+                removed.append(name)
+            }
+        }
+        return removed
     }
 
     private func acceptConnection(listenFD: Int32) {

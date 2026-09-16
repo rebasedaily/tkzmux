@@ -10,6 +10,7 @@ import Foundation
 import Testing
 import ClaudeBridge
 import TkzCore
+import TkzTerminalCore
 
 @testable import TkzApp
 
@@ -25,18 +26,34 @@ struct ClaudeIntegrationTests {
         let directory: URL
     }
 
-    static func makeHarness(home: String? = nil) -> Harness {
+    /// A process tree as two tables, for the ownership walk and the pid joins. Anything not in
+    /// `parents` has no parent, which is what `proc_pidinfo` says about a pid that does not exist.
+    struct FakeAncestry: ProcessAncestry {
+        var parents: [pid_t: pid_t] = [:]
+        var names: [pid_t: String] = [:]
+        func parent(of pid: pid_t) -> pid_t? { parents[pid] }
+        func name(of pid: pid_t) -> String? { names[pid] }
+    }
+
+    /// The pid every harness integration believes it is; `FakeAncestry` trees end here.
+    static let instancePID: pid_t = 777
+
+    static func makeHarness(
+        home: String? = nil, shellPid: pid_t = 1, ancestry: FakeAncestry = FakeAncestry(),
+        instancePID: pid_t = ClaudeIntegrationTests.instancePID
+    ) -> Harness {
         let directory = URL(filePath: NSTemporaryDirectory())
             .appending(path: "tkzci-\(UUID().uuidString)", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var state = AppState.startup(homeDirectory: "/tmp/nowhere")
         let group = state.orderedGroups[0].id
         let session = state.createSession(groupID: group, cwd: "/tmp/nowhere", accountKey: "claude")
-        state.setLive(LiveSessionState(shellPid: 1, status: .idle), for: session.id)
+        state.setLive(LiveSessionState(shellPid: shellPid, status: .idle), for: session.id)
         state.select(session.id)
         let store = AppStore(state: state)
         let integration = ClaudeIntegration(
-            store: store, directory: directory, home: home ?? directory.path, installer: nil)
+            store: store, directory: directory, home: home ?? directory.path, installer: nil,
+            instancePID: instancePID, ancestry: ancestry)
         return Harness(store: store, integration: integration, group: group, session: session.id, directory: directory)
     }
 
@@ -268,6 +285,122 @@ struct ClaudeIntegrationTests {
         #expect(h.integration.externalDescriptors[key] == nil)
     }
 
+    // MARK: - Instance ownership (two tkzmux sharing one support directory)
+
+    /// The contract the multi-instance fix rests on: the server listens where the pane's
+    /// environment says, for the same pid, and that name is per instance.
+    @Test("the hook server and the pty environment agree on the per-instance socket")
+    func hookServerAndPtyAgreeOnTheSocket() {
+        let h = Self.makeHarness()
+        let expected = HookSocket.url(in: h.directory, pid: Self.instancePID)
+        #expect(h.integration.hookServer.socketPath.path == expected.path)
+        let env = TerminalEnvironment.make(
+            sessionID: "x", tkzmuxDir: h.directory, baseEnvironment: ["HOME": h.directory.path],
+            home: h.directory.path, instancePID: Self.instancePID)
+        #expect(env["TKZMUX_SOCKET"] == expected.path)
+        let other = Self.makeHarness(instancePID: 778)
+        #expect(other.integration.hookServer.socketPath.path != expected.path)
+    }
+
+    @Test("a descriptor under one of our panes joins by conversation id")
+    func descriptorUnderOurPaneJoinsByClaudeSessionId() {
+        // claude 5000 → pane zsh 4000 → us
+        let tree = FakeAncestry(parents: [5000: 4000, 4000: 777, 777: 1], names: [777: "tkzmux"])
+        let h = Self.makeHarness(ancestry: tree)
+        h.store.update { $0.sessions[h.session]?.claudeSessionId = "claude-sid" }
+        h.integration.handle(DescriptorEvent.updated(Self.descriptor(pid: 5000, status: .busy), alive: true))
+        let live = h.store.state.sessions[h.session]?.live
+        #expect(live?.status == .working)
+        #expect(live?.pid == 5000)
+        #expect(h.integration.externalDescriptors.isEmpty)
+    }
+
+    @Test("a descriptor whose ancestry crosses another tkzmux is external, by either fallback")
+    func descriptorAcrossForeignTkzmuxIsExternal() {
+        // claude 5000 → dev zsh 4000 → dev tkzmux 900 → our pane zsh 300 → us. The row hosts
+        // that dev build (its shell is 300) *and* carries the same conversation id the dev
+        // build restored from the shared state.json — both fallbacks would have claimed it.
+        let tree = FakeAncestry(
+            parents: [5000: 4000, 4000: 900, 900: 300, 300: 777, 777: 1],
+            names: [900: "tkzmux", 777: "tkzmux"])
+        let h = Self.makeHarness(shellPid: 300, ancestry: tree)
+        h.store.update { $0.sessions[h.session]?.claudeSessionId = "claude-sid" }
+        let info = Self.descriptor(pid: 5000, status: .busy)
+        h.integration.handle(DescriptorEvent.updated(info, alive: true))
+        let key = DescriptorKey(configDir: info.configDir, pid: 5000)
+        #expect(h.integration.externalDescriptors[key] != nil)
+        let live = h.store.state.sessions[h.session]?.live
+        #expect(live?.status == .idle)
+        #expect(live?.pid == nil)
+        #expect(live?.descriptor == nil)
+        // The bare walk refuses too: a hook from that tree with no sid is unattributed.
+        let hook = HookEvent(kind: .stop, sessionID: nil, claudeSessionId: "unrelated")
+        #expect(h.integration.sessionID(forHook: hook, ppid: 5000) == nil)
+    }
+
+    @Test("a descriptor whose ancestry reaches launchd without us is external")
+    func descriptorReachingLaunchdIsExternal() {
+        // Terminal.app's claude: 5000 → zsh 4000 → Terminal 200 → launchd.
+        let tree = FakeAncestry(parents: [5000: 4000, 4000: 200, 200: 1], names: [777: "tkzmux"])
+        let h = Self.makeHarness(ancestry: tree)
+        h.store.update { $0.sessions[h.session]?.claudeSessionId = "claude-sid" }
+        let info = Self.descriptor(pid: 5000, status: .busy)
+        h.integration.handle(DescriptorEvent.updated(info, alive: true))
+        #expect(h.integration.externalDescriptors[DescriptorKey(configDir: info.configDir, pid: 5000)] != nil)
+        #expect(h.store.state.sessions[h.session]?.status == .idle)
+    }
+
+    @Test("a launch-bound descriptor is ours whatever its ancestry looks like")
+    func launchBoundDescriptorIgnoresAncestry() {
+        // The launch frame came over *our* socket; the walk is not consulted.
+        let tree = FakeAncestry(parents: [5000: 900, 900: 777], names: [900: "tkzmux", 777: "tkzmux"])
+        let h = Self.makeHarness(ancestry: tree)
+        h.integration.handle(Self.launch(h.session, pid: 5000))
+        h.integration.handle(DescriptorEvent.updated(Self.descriptor(pid: 5000, status: .busy), alive: true))
+        #expect(h.store.state.sessions[h.session]?.live?.status == .working)
+        #expect(h.integration.externalDescriptors.isEmpty)
+    }
+
+    /// The bug report as a test: two instances restore the same row from one `state.json`; the
+    /// dev build (888) was started from a pane of the installed one (777) and resumed the row's
+    /// conversation. The same descriptor reaches both watchers. Only the dev build may bind it —
+    /// the installed one used to, and its row then flipped between two Claudes.
+    @Test("two instances sharing a state file do not claim each other's Claude")
+    func twoInstancesDoNotClaimEachOthersClaude() {
+        // claude 5000 → dev pane zsh 4000 → dev tkzmux 888 → installed pane zsh 300 → installed 777
+        let tree = FakeAncestry(
+            parents: [5000: 4000, 4000: 888, 888: 300, 300: 777, 777: 1],
+            names: [888: "tkzmux", 777: "tkzmux"])
+        var shared = AppState.startup(homeDirectory: "/tmp/nowhere")
+        let session = shared.createSession(groupID: shared.orderedGroups[0].id, cwd: "/tmp/nowhere", accountKey: "claude")
+        shared.sessions[session.id]?.claudeSessionId = "claude-sid"
+
+        var stateA = shared
+        stateA.setLive(LiveSessionState(shellPid: 300, status: .idle), for: session.id)
+        var stateB = shared
+        stateB.setLive(LiveSessionState(shellPid: 4000, status: .idle), for: session.id)
+        let storeA = AppStore(state: stateA)
+        let storeB = AppStore(state: stateB)
+        let directory = URL(filePath: NSTemporaryDirectory())
+            .appending(path: "tkzci-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let a = ClaudeIntegration(store: storeA, directory: directory, home: directory.path, installer: nil,
+                                  instancePID: 777, ancestry: tree)
+        let b = ClaudeIntegration(store: storeB, directory: directory, home: directory.path, installer: nil,
+                                  instancePID: 888, ancestry: tree)
+        #expect(a.hookServer.socketPath.path != b.hookServer.socketPath.path)
+
+        let info = Self.descriptor(pid: 5000, status: .busy)
+        a.handle(DescriptorEvent.updated(info, alive: true))
+        b.handle(DescriptorEvent.updated(info, alive: true))
+
+        let key = DescriptorKey(configDir: info.configDir, pid: 5000)
+        #expect(a.externalDescriptors[key] != nil)
+        #expect(storeA.state.sessions[session.id]?.status == .idle)
+        #expect(b.externalDescriptors[key] == nil)
+        #expect(storeB.state.sessions[session.id]?.status == .working)
+        #expect(storeB.state.sessions[session.id]?.live?.pid == 5000)
+    }
+
     @Test("descriptor removal returns the row to a plain shell")
     func descriptorLost() {
         let h = Self.makeHarness()
@@ -391,7 +524,7 @@ struct ClaudeIntegrationTests {
         process.executableURL = binary
         process.arguments = ["Stop"]
         process.environment = [
-            "TKZMUX_SOCKET": directory.appending(path: "tkzmux.sock").path,
+            "TKZMUX_SOCKET": integration.hookServer.socketPath.path,
             "TKZMUX_SESSION_ID": session.id.rawValue,
             "HOME": directory.path,
         ]
