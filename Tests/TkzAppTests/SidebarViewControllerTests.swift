@@ -1184,14 +1184,23 @@ struct SidebarDragAndDropTests {
         return (header, bottom)
     }
 
-    /// The `y` just past the last row — "below everything" for a group drag.
+    /// A `y` at or past the bottom of the whole list — "below everything" for a group drag.
     ///
-    /// Not `outline.bounds.height`: `NSTableView` sizes its frame from an *estimate* of the rows it
-    /// has not measured yet, and that estimate lags the row rects (1733.6 pt against 1755 pt of rows
-    /// on the fixture here, and shorter still on the CI runner, where it put this point inside the
-    /// fourth group). `rect(ofRow:)` is the measured geometry the slot is derived from.
+    /// From `SidebarMetrics`, not from the outline. `groupDropIndex` decides against the *model's*
+    /// heights, on purpose (see its doc comment: screen rects slide under `.gap` feedback), and the
+    /// two do not agree below the fold on a headless runner — the harness window is 700 pt against
+    /// ~1755 pt of fixture rows, and both `outline.bounds.height` and `rect(ofRow:)` for the last
+    /// row put this point inside the *fourth* group in CI. Anything derived from rows AppKit has
+    /// not laid out is a coordinate this suite cannot trust.
+    ///
+    /// An upper bound is all this has to be: every group is one `groupRowHeight` header, every
+    /// session row is at most `sessionRowWrappedHeight` (two lines is the cap), and a collapsed
+    /// group lays out fewer rows than are counted here.
     static func belowEverything(_ harness: SidebarViewControllerTests.Harness) -> CGFloat {
-        harness.outline.rect(ofRow: harness.outline.numberOfRows - 1).maxY + 20
+        let state = harness.store.state
+        return CGFloat(state.groups.count) * CGFloat(SidebarMetrics.groupRowHeight)
+            + CGFloat(state.sessions.count) * CGFloat(SidebarMetrics.sessionRowWrappedHeight)
+            + 20
     }
 
     @Test("Dragging the first group down swaps with the second as soon as the pointer enters its header")
