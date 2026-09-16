@@ -436,11 +436,17 @@ public final class ClaudeIntegration {
             logger.info("hook \(String(describing: event.kind), privacy: .public) → \(id.rawValue, privacy: .public)")
             if event.kind == .stop, let fullMessage { fullMessages[id] = fullMessage }
             if let transcriptPath, !transcriptPath.isEmpty { transcriptPaths[id] = transcriptPath }
-            let attended = event.kind == .stop && isSessionAttended(id)
+            // A hook landing on the row the user is looking at is seen as it lands: a Stop is
+            // attended outright (the NEEDS YOU clock never starts), and any other kind at least
+            // leaves the row's feed entries read — the outline view never re-fires selection for
+            // the row that is already selected, so nothing else would clear them.
+            let attended = isSessionAttended(id)
             store.update { state in
                 let now = Date()
                 state.applyHook(event, to: id, now: now)
-                if attended { state.markAttended(id, now: now) }
+                if attended {
+                    if event.kind == .stop { state.markAttended(id, now: now) } else { state.markActivityRead(id) }
+                }
             }
             if event.kind == .stop { onStop?(id) }
             if event.kind == .sessionEnd, store.state.sessions[id]?.live?.ended == true {

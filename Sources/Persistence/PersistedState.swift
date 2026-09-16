@@ -134,12 +134,17 @@ public struct PersistedState: Hashable, Sendable, Codable {
     public var windowFrame: PersistedFrame?
     public var shortcuts: [String: String]
     public var preferences: PersistedPreferences
+    /// The activity feed's log, oldest first. Its own top-level key, and **no schema bump**: an
+    /// older v3 build carries an unknown top-level key through `StateDocument.extras` untouched,
+    /// and this build reads a file without it as an empty log — neither of the two reasons the
+    /// v2→v3 bump gives applies.
+    public var activity: [ActivityEvent]
 
     /// The keys this build writes. Anything else in the file is a newer build's and is carried in
     /// `StateDocument.extras`.
     static let knownKeys: Set<String> = [
         "schemaVersion", "groups", "sessions", "selection", "sidebar", "windowFrame",
-        "shortcuts", "preferences",
+        "shortcuts", "preferences", "activity",
     ]
 
     public init(
@@ -150,7 +155,8 @@ public struct PersistedState: Hashable, Sendable, Codable {
         sidebar: PersistedSidebar = PersistedSidebar(visible: true, width: nil),
         windowFrame: PersistedFrame? = nil,
         shortcuts: [String: String] = [:],
-        preferences: PersistedPreferences = PersistedPreferences()
+        preferences: PersistedPreferences = PersistedPreferences(),
+        activity: [ActivityEvent] = []
     ) {
         self.schemaVersion = schemaVersion
         self.groups = groups
@@ -160,11 +166,12 @@ public struct PersistedState: Hashable, Sendable, Codable {
         self.windowFrame = windowFrame
         self.shortcuts = shortcuts
         self.preferences = preferences
+        self.activity = activity
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, groups, sessions, selection, sidebar, windowFrame, shortcuts
-        case preferences
+        case preferences, activity
     }
 
     /// `preferences` is optional on the way in: files written before M5.2 have no such key.
@@ -179,6 +186,7 @@ public struct PersistedState: Hashable, Sendable, Codable {
         shortcuts = try c.decode([String: String].self, forKey: .shortcuts)
         preferences = try c.decodeIfPresent(PersistedPreferences.self, forKey: .preferences)
             ?? PersistedPreferences()
+        activity = try c.decodeIfPresent([ActivityEvent].self, forKey: .activity) ?? []
     }
 
     // MARK: Projection
@@ -209,7 +217,8 @@ public struct PersistedState: Hashable, Sendable, Codable {
                 themePreset: state.themePreset.rawValue,
                 showSessionSpend: state.showSessionSpend,
                 checkOriginPeriodically: state.checkOriginPeriodically,
-                notifyOnDone: state.notifyOnDone))
+                notifyOnDone: state.notifyOnDone),
+            activity: state.activity)
     }
 
     // MARK: Restore
@@ -260,6 +269,10 @@ public struct PersistedState: Hashable, Sendable, Codable {
         state.sidebarWidth = sidebar.width.map { CGFloat($0) }
         if let windowFrame { state.windowFrame = windowFrame.rect }
         state.shortcuts = shortcuts
+        // An entry for a row that did not make it back can jump nowhere; the cap holds either way.
+        let dropped = activity.count { state.sessions[$0.sessionID] == nil }
+        if dropped > 0 { warnings.append("\(dropped) activity entr\(dropped == 1 ? "y" : "ies") for unknown sessions; dropped") }
+        state.activity = Array(activity.filter { state.sessions[$0.sessionID] != nil }.suffix(AppState.activityCap))
         state.autoResumeOnLaunch = preferences.autoResumeOnLaunch
         state.statuslineOffered = preferences.statuslineOffered
         state.dismissedUpdateVersion = preferences.dismissedUpdateVersion

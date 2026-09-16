@@ -22,7 +22,7 @@ this table; nothing hard-codes a key equivalent.
 | `closeSession` | ⇧⌘W | Close the session, however many panes it has |
 | `selectSession1` … `selectSession9` | ⌘1 … ⌘9 | Select the n-th visible session |
 | `jumpToNeedsYou` | ⇧⌘U | Jump to the next session that needs you |
-| `notifications` | ⌘I | **No handler yet — hidden**. See *Hidden commands* below |
+| `notifications` | ⌘I | The activity feed: a catch-up inbox over the terminal, newest first — every row's finished turns (the first two lines of Claude's reply), NEEDS YOU flips (permission / question / unattended) and Claude exits, one thread per row with older entries folded under the newest. Rows that are working are pinned at the top with their elapsed time. An entry is **unread** (bold) until its row is looked at — selected, typed into, or a Stop arriving while it is on screen; right-click › *Mark as Unread* raises it again, and the log (200 entries) survives a relaunch in `state.json`. Inside: typing filters by session title, group and message text (contiguous, like ⌘F); ↑/↓ walk the list, ↵ selects the row and closes, → / ← unfold and fold the selected thread (⌥→ / ⌥← still move the caret), esc or the chord again closes |
 | `settings` | ⌘, | The Settings window (design 7a–d): General, Shell and Appearance pages. Every preference that used to be an app-menu checkmark lives here as a switch with a sentence — resume on launch, the periodic origin check, the "Claude finished" notification, token usage & spend, the status line per account, shell integration status and removal, the colour scheme. Esc or ⌘W closes it |
 | `openFolder` | ⌘O | Directory picker; the chosen folder becomes a group and `claude` starts in it — the same flow as ＋ New session… › In another repo… |
 | `reloadConfig` | ⇧⌘, | **No handler yet — hidden**. See *Hidden commands* below |
@@ -49,15 +49,15 @@ this table; nothing hard-codes a key equivalent.
 
 A surface shows a command only when `MenuDispatcher` has a handler for it. `MainMenu.build` gives an
 action with no handler no menu item at all; the ⌘-hold cheat sheet walks that menu, and ⇧⌘P filters
-its command rows on the same set. So `notifications` and `reloadConfig` are in the table above and
-in `ShortcutsTable`, but nowhere on screen — they were greyed out in the menu and *live* in the
-palette and the cheat sheet, where choosing them did nothing at all. `settings` was the
-third until the Settings window gave it a handler.
+its command rows on the same set. So `reloadConfig` is in the table above and in `ShortcutsTable`,
+but nowhere on screen — it was greyed out in the menu and *live* in the palette and the cheat sheet,
+where choosing it did nothing at all. `settings` and `notifications` were hidden the same way until
+the Settings window and the activity feed gave them handlers.
 
-Their ids stay, because `AppState.shortcuts` is keyed by id and an override for an unknown one must
-keep parsing; their chords stay in `ShortcutsTable.defaults`, so ⌘I and ⇧⌘, are **reserved, not
-free**. Registering a handler is the whole of bringing one back — it reappears in the menu, the
-palette and the cheat sheet at once, with no change here or to the table.
+Its id stays, because `AppState.shortcuts` is keyed by id and an override for an unknown one must
+keep parsing; its chord stays in `ShortcutsTable.defaults`, so ⇧⌘, is **reserved, not free**.
+Registering a handler is the whole of bringing one back — it reappears in the menu, the palette and
+the cheat sheet at once, with no change here or to the table.
 
 The six preference toggles that were app-menu items until the Settings window (`toggleAutoResume`,
 `toggleSessionSpend`, `toggleOriginCheck`, `toggleDoneNotification`, `statusLineIntegration`,

@@ -60,6 +60,13 @@ public struct AppState: Hashable, Sendable {
     /// The release check's answer and the in-app upgrade's progress. Process state, never
     /// persisted — see `UpdateState`.
     public var update: UpdateState
+    /// The activity feed's event log (⌘I), oldest first, at most `activityCap` entries. Appended
+    /// by `applyHook`/`rederiveStatus`, read flags cleared by `markAttended`. Durable, its own
+    /// top-level key in `state.json`; `ChangeSet.activity` is its bucket.
+    public var activity: [ActivityEvent]
+
+    /// How many feed entries are kept; the oldest go first.
+    public static let activityCap = 200
 
     public init(
         groups: [GroupID: Group] = [:],
@@ -78,7 +85,8 @@ public struct AppState: Hashable, Sendable {
         checkOriginPeriodically: Bool = false,
         notifyOnDone: Bool = true,
         themePreset: Theme.Preset = Theme.default.preset,
-        update: UpdateState = UpdateState()
+        update: UpdateState = UpdateState(),
+        activity: [ActivityEvent] = []
     ) {
         self.groups = groups
         self.sessions = sessions
@@ -97,6 +105,7 @@ public struct AppState: Hashable, Sendable {
         self.notifyOnDone = notifyOnDone
         self.themePreset = themePreset
         self.update = update
+        self.activity = activity
     }
 
     // MARK: Update card

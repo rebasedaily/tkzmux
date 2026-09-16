@@ -120,11 +120,12 @@ struct PaletteTests {
         #expect(palette.performableCommands == harness.controller.dispatcher.performableActions)
 
         let ids = Set(palette.dataSource.items.filter { $0.kind == .command }.map(\.actionID))
-        for dead in [ShortcutAction.notifications, .reloadConfig] {
+        for dead in [ShortcutAction.reloadConfig] {
             #expect(!ids.contains(dead.rawValue), "\(dead.rawValue) has no handler and must not be a row")
         }
         #expect(ids.contains(ShortcutAction.openFolder.rawValue), "⌘O works")
         #expect(ids.contains(ShortcutAction.settings.rawValue), "⌘, works")
+        #expect(ids.contains(ShortcutAction.notifications.rawValue), "⌘I works — the activity feed")
     }
 
     @Test func sectionsComeBackGroupedInDisplayOrder() throws {

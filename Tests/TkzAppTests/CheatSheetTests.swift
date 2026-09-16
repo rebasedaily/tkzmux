@@ -195,16 +195,17 @@ struct CheatSheetTests {
         #expect(Self.row(with, "Reload Config")?.keys == "\u{21E7}\u{2318},")
     }
 
-    /// The two actions that really have no handler today, against the running window's own menu.
+    /// The one action that really has no handler today, against the running window's own menu.
     @Test("The running app's sheet lists no dead chord")
     func theRealSheetHasNoDeadChords() {
         let harness = MainWindowControllerTests.makeHarness()
         defer { harness.tearDown() }
 
         let sections = CheatSheetModel.sections(from: harness.controller.buildMainMenu())
-        for title in ["Notifications", "Reload Config"] {
+        for title in ["Reload Config"] {
             #expect(Self.row(sections, title) == nil, "\(title) has no handler")
         }
+        #expect(Self.row(sections, "Notifications")?.keys == "\u{2318}I", "⌘I is wired — the activity feed")
         #expect(Self.row(sections, "Open Folder\u{2026}")?.keys == "\u{2318}O", "⌘O is wired")
         #expect(Self.row(sections, "Settings\u{2026}")?.keys == "\u{2318},", "⌘, is wired")
     }

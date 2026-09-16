@@ -263,6 +263,7 @@ struct MainWindowControllerTests {
     static func keepOffScreen(_ controller: MainWindowController) {
         controller.rebaseSheet.orderFront = { _ in }
         controller.settings.orderFront = { _ in }
+        controller.activityFeed.orderFront = { _ in }
     }
 
     static func makeHarness(_ state: AppState = .fixture, home: String = emptyHome) -> Harness {
