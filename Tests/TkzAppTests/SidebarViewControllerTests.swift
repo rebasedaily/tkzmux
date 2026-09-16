@@ -1184,6 +1184,16 @@ struct SidebarDragAndDropTests {
         return (header, bottom)
     }
 
+    /// The `y` just past the last row — "below everything" for a group drag.
+    ///
+    /// Not `outline.bounds.height`: `NSTableView` sizes its frame from an *estimate* of the rows it
+    /// has not measured yet, and that estimate lags the row rects (1733.6 pt against 1755 pt of rows
+    /// on the fixture here, and shorter still on the CI runner, where it put this point inside the
+    /// fourth group). `rect(ofRow:)` is the measured geometry the slot is derived from.
+    static func belowEverything(_ harness: SidebarViewControllerTests.Harness) -> CGFloat {
+        harness.outline.rect(ofRow: harness.outline.numberOfRows - 1).maxY + 20
+    }
+
     @Test("Dragging the first group down swaps with the second as soon as the pointer enters its header")
     func firstGroupSwapsDownOnEnteringTheSecond() throws {
         let harness = SidebarViewControllerTests.makeHarness()
@@ -1250,10 +1260,10 @@ struct SidebarDragAndDropTests {
         let harness = SidebarViewControllerTests.makeHarness()
         let controller = harness.controller
         let groups = harness.store.state.orderedGroups.map(\.id)
-        let height = harness.outline.bounds.height
+        let below = Self.belowEverything(harness)
         for dragged in groups {
             var last = 0
-            for y in stride(from: -20, through: height + 20, by: 1) {
+            for y in stride(from: -20, through: below, by: 1) {
                 let slot = controller.groupDropIndex(atY: y, dragging: dragged)
                 #expect(slot >= last, "dragging \(dragged) at y=\(y): \(slot) after \(last)")
                 last = slot
@@ -1261,7 +1271,7 @@ struct SidebarDragAndDropTests {
             // Above everything is first place and below everything is last place, whichever group is
             // dragged (for the last group, "its own slot" and "the end" are the same no-op).
             let top = controller.groupDropIndex(atY: -20, dragging: dragged)
-            let bottom = controller.groupDropIndex(atY: height + 20, dragging: dragged)
+            let bottom = controller.groupDropIndex(atY: below, dragging: dragged)
             #expect(controller.groupStoreIndex(forDisplayed: top, dragging: dragged) == 0)
             #expect(controller.groupStoreIndex(forDisplayed: bottom, dragging: dragged) == groups.count - 1)
         }
@@ -1314,7 +1324,7 @@ struct SidebarDragAndDropTests {
         let dragged = before[0]
         let rows = harness.store.state.sessions(in: dragged).map(\.id)
 
-        let slot = controller.groupDropIndex(atY: harness.outline.bounds.height + 10, dragging: dragged)
+        let slot = controller.groupDropIndex(atY: Self.belowEverything(harness), dragging: dragged)
         #expect(slot == before.count)
         let at = controller.groupStoreIndex(forDisplayed: slot, dragging: dragged)
         harness.mutate { $0.moveGroup(dragged, to: at) }
