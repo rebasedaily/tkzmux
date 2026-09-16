@@ -111,7 +111,7 @@ struct TerminalMetalViewTests {
         #expect(visibleRelay.signalCount == visibleBaseline + 1)
     }
 
-    // MARK: Focus (TKZ-36)
+    // MARK: Focus
 
     // Click-to-focus (`mouseDown` making itself first responder) is asserted at the window level,
     // in `MainWindowControllerTests`, where a click on a pane has to end up as `focusedTerminal`
@@ -120,7 +120,7 @@ struct TerminalMetalViewTests {
     // real one does — an earlier attempt passed or failed depending on AppKit's own re-assertions
     // and cost 30 s a run.
 
-    // MARK: Synchronous resize (TKZ-36)
+    // MARK: Synchronous resize
 
     /// A divider drag is not a *window* resize, so `inLiveResize` stays false and the asynchronous
     /// branch of `setFrameSize` runs — Core Animation then stretches the previous texture over the
@@ -296,7 +296,7 @@ struct TerminalMetalViewTests {
         #expect(view.framesRendered == 0)
     }
 
-    // MARK: The scroll indicator (TKZ-45)
+    // MARK: The scroll indicator
 
     /// Renders one offscreen frame, which is what refreshes `surface.scrollMetrics`, then hands it
     /// to the overlay. `renderNow` bails without a window, so the wiring is driven directly — the

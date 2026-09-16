@@ -678,7 +678,7 @@ import Testing
         #expect(state.sessions[id]?.live?.pendingNotification == nil)
     }
 
-    /// TKZ-74: the banner's body is Claude's own line, kept only for the three prompts that become
+    /// The banner's body is Claude's own line, kept only for the three prompts that become
     /// NEEDS YOU, and gone once the prompt is answered or the row attended.
     @Test func notificationKeepsClaudesMessageForBlockedPromptsOnly() {
         var (state, id) = makeState()
@@ -961,7 +961,7 @@ import Testing
 }
 
 @Suite struct FixtureTests {
-    /// TKZ-19 exercises row-granular reloads against this; it must stay big and varied.
+    /// The sidebar (M2.3) exercises row-granular reloads against this; it must stay big and varied.
     @Test func isBigEnoughAndCoversEveryState() {
         let state = AppState.fixture
         #expect(state.sessions.count == 40)

@@ -1,4 +1,4 @@
-// TerminalHost — the seam between the terminal engine and the app (M1.10 / TKZ-16).
+// TerminalHost — the seam between the terminal engine and the app (M1.10).
 // See docs/design.md → *TerminalHost — the seam between halves*, and docs/perf.md → *GUI half*.
 //
 // This file holds two things. (`SessionID` used to live here as a stopgap; M2.1 moved it to
@@ -15,7 +15,7 @@
 //
 // ## The invariant this type exists to hold: an unattached terminal costs only IO
 //
-// Until TKZ-36 this was stated as "there is exactly one `TerminalSurface`". That is no longer
+// Until the pane split this was stated as "there is exactly one `TerminalSurface`". That is no longer
 // true — a session with split panes puts several terminals on screen at once, each with its own
 // surface — but the property that mattered is untouched, and it is the *cost* one, not the count.
 // A terminal is attached to a surface only while it is on screen; `show(_:)` detaches every
@@ -192,7 +192,7 @@ public final class TerminalViewHost: TerminalHost {
     public let snapshots: SnapshotStore
     /// tkzmux's application-support directory — `ZDOTDIR`, `TKZMUX_BIN`, the socket.
     public let tkzmuxDirectory: URL
-    /// The login shell every session runs (TKZ-33): `SHELL` from `baseEnvironment`, then the
+    /// The login shell every session runs: `SHELL` from `baseEnvironment`, then the
     /// account database, then `/bin/zsh`. Decided once; a `chsh` takes effect at the next launch.
     public let shell: LoginShell
     /// What a session's environment is built on top of.
@@ -404,7 +404,7 @@ public final class TerminalViewHost: TerminalHost {
         size: TerminalSize
     ) throws -> Pty {
         // The **row's** id, not the terminal's: every pane of a row must look like one row to the
-        // shim, the hook relay and ClaudeBridge (TKZ-36).
+        // shim, the hook relay and ClaudeBridge.
         let spawn = TerminalEnvironment.loginShellSpawn(
             sessionID: sessionID.rawValue,
             cwd: cwd,

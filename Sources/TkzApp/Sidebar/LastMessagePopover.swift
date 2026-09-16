@@ -1,4 +1,4 @@
-// LastMessagePopover — the sidebar's "what did Claude just say" popover (M3.4 / TKZ-24).
+// LastMessagePopover — the sidebar's "what did Claude just say" popover (M3.4).
 //
 // Clicking the status dot of a row that is `idle` with `isDone == true` (the "done" tint) or
 // `waiting` shows the session's last `Stop` message — up to 4 KiB, kept by `LiveSessionState` —

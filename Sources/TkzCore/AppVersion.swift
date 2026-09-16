@@ -1,4 +1,4 @@
-// AppVersion.swift — the app's version identity (M6.1 / TKZ-37).
+// AppVersion.swift — the app's version identity (M6.1).
 //
 // One value type answers "which tkzmux is this, and which libghostty-vt is inside it" for every
 // consumer: `tkzmux --version`, the About panel, and anything a bug report needs to quote.

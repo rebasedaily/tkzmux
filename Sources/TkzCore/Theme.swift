@@ -14,6 +14,15 @@ public struct Theme: Hashable, Sendable {
     public enum Preset: String, CaseIterable, Hashable, Sendable {
         case midnightIndigo   // 2c
         case light            // 1b
+
+        /// The artboard's own name, for the Settings › Appearance popup. Data in this file, like
+        /// ``Theme/toggled(_:)``, so no call site ever branches on a preset.
+        public var displayName: String {
+            switch self {
+            case .midnightIndigo: "Midnight indigo"
+            case .light: "Light"
+            }
+        }
     }
 
     public let preset: Preset

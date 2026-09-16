@@ -1,4 +1,4 @@
-// ChangesViewerModel.swift — the value behind the changes viewer (TKZ-58, design 2c.2).
+// ChangesViewerModel.swift — the value behind the changes viewer (design 2c.2).
 //
 // Everything the viewer draws is a pure function of this struct and a `Theme`: the header's
 // `12 files · +142 −38`, the base menu, which file is selected, and — through `DiffRowBuilder` —

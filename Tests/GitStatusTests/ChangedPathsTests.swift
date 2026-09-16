@@ -1,4 +1,4 @@
-// The paths behind the counts — what the search overlay's "Files changed" section lists (TKZ-52).
+// The paths behind the counts — what the search overlay's "Files changed" section lists.
 //
 // Same fixture shape as `GitStatusParsingTests`: literal `git status --porcelain=v2 --branch -z`
 // output, every line NUL-terminated, headers included.

@@ -32,7 +32,7 @@ import Testing
         #expect(names.count >= 6)
     }
 
-    /// TKZ-17 acceptance: no `import AppKit` / `import SwiftUI` (or Cocoa) anywhere in TkzCore.
+    /// M2.1 acceptance: no `import AppKit` / `import SwiftUI` (or Cocoa) anywhere in TkzCore.
     /// Matches actual import statements, not the word — RGB.swift's header comment mentions AppKit.
     @Test func noUIFrameworkImports() throws {
         let pattern = try NSRegularExpression(

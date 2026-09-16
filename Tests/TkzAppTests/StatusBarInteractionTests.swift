@@ -3,7 +3,7 @@ import Testing
 import TkzCore
 @testable import TkzApp
 
-/// The M4.2 half of the status strip (TKZ-27): the segments the git/PR/port services fill in, and
+/// The M4.2 half of the status strip: the segments the git/PR/port services fill in, and
 /// the pointer behaviour that goes with them — tooltips, the pointing-hand cursor and clicks.
 ///
 /// Content still goes through the pure `StatusBarView.items(for:theme:)`; interaction goes through

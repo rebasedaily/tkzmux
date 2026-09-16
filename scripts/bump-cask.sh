@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Point the Homebrew cask at a freshly published release (TKZ-34).
+# Point the Homebrew cask at a freshly published release.
 #
 #   scripts/bump-cask.sh <version> <sha256>
 #

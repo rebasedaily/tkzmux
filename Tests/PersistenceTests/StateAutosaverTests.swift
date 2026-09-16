@@ -1,4 +1,4 @@
-// StateAutosaverTests — the write *policy* (M5.1 / TKZ-29): when a mutation reaches the disk, and,
+// StateAutosaverTests — the write *policy* (M5.1): when a mutation reaches the disk, and,
 // more importantly, when it must not.
 //
 // The saver lives in `Persistence` rather than `TkzApp` precisely so this file can exist: no

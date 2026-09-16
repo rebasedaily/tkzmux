@@ -1,5 +1,5 @@
 // LoginShell — which shell a session runs, and how tkzmux's shell integration reaches it.
-// TKZ-33: the pty used to spawn `/bin/zsh -l` for everyone; now it spawns the user's login shell.
+// The pty used to spawn `/bin/zsh -l` for everyone; now it spawns the user's login shell.
 //
 // The single source of truth shared by `TerminalEnvironment` (TkzTerminalCore, builds the argv and
 // the environment) and `ShimInstaller` (ClaudeBridge, writes the wrapper files): both need to

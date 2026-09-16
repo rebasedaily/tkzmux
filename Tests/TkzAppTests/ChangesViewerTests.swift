@@ -1,4 +1,4 @@
-// ChangesViewerTests — the changes viewer (TKZ-58, design 2c.2): the model, the row builder, the
+// ChangesViewerTests — the changes viewer (design 2c.2): the model, the row builder, the
 // status-bar chips that open it, and the window controller's open/close/focus round trip.
 
 import AppKit

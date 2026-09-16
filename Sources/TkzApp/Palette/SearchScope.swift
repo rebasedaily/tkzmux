@@ -1,4 +1,4 @@
-// SearchScope.swift — the chip row of the toolbar's results overlay (TKZ-52, design 2c.6).
+// SearchScope.swift — the chip row of the toolbar's results overlay (design 2c.6).
 //
 // 2c.6 draws four chips — `All · Sessions · Transcripts · Files changed` — and a group filter on
 // the right (`in: All groups ▾`). Tab cycles the chips; the scope decides which sections the

@@ -1,4 +1,4 @@
-// UpdateNoticeView — the "Update available" card at the foot of the sidebar (design 2c.1, TKZ-50).
+// UpdateNoticeView — the "Update available" card at the foot of the sidebar (design 2c.1).
 //
 //     ┌──────────────────────────────────────────────┐
 //     │ ┌──┐  Update available — v0.8.0            ✕ │   40 pt card, 9 pt radius, 1 pt border

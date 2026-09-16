@@ -1,4 +1,4 @@
-// SidebarRowAdapter — the one place that knows both vocabularies (M2.3 / TKZ-19).
+// SidebarRowAdapter — the one place that knows both vocabularies (M2.3).
 //
 // `Sidebar/SidebarRowModels.swift` deliberately contains no `TkzCore` model types, so the row views
 // can be built and tested against literals. This file is the bridge: `Session`/`Group`/`AppState`
@@ -23,7 +23,7 @@
 //   * `color: nil` stays `nil` — a group with no colour gets a transparent edge, deliberately not
 //     `Theme.groupEdgeDefault` (that token is the colour picker's default, not a fallback).
 //   * `SidebarSessionRowModel.groupColor` is the one field on a *session* row that comes from the
-//     group rather than the session (TKZ-48), so the colour edge runs down the whole group. It is
+//     group rather than the session, so the colour edge runs down the whole group. It is
 //     also the only reason `sessionModel` reads `state.groups`; `SidebarViewController.applyGroups`
 //     has to reload a group's session rows when its colour changes because of it.
 
@@ -135,7 +135,7 @@ public enum SidebarRowAdapter {
         return SidebarSummaryModel(working: counts.working, needAttention: counts.needsYou)
     }
 
-    // MARK: - Update card (TKZ-50)
+    // MARK: - Update card
 
     /// The card for `state.visibleUpdate`, worded for the upgrade's phase, or `nil` for no card.
     /// The release link is on every variant; brew is offered only when the capability allows.

@@ -23,7 +23,7 @@
 // Everything visible is derived from ``StatusBarModel`` and a ``Theme``; nothing is hardcoded, so
 // both presets work.
 //
-// M4.2 (TKZ-27) added the interactive half. The ticket asked for `NSStackView` children bound to
+// M4.2 added the interactive half. The ticket asked for `NSStackView` children bound to
 // slices of the live state; that is **not** what shipped, because the no-subviews decision above
 // predates the ticket and still holds — collapsing separators and whole-line truncation are
 // properties of the line, not of a label. Instead the layout pass records a frame per item
@@ -152,7 +152,7 @@ struct StatusItem: Equatable, Sendable {
 enum StatusAction: Equatable, Sendable {
     /// Open in the default browser: the PR badge, each port.
     case open(URL)
-    /// Open the changes viewer (design 2c.2 / TKZ-58): the `+142 −38` and `12 files` chips.
+    /// Open the changes viewer (design 2c.2): the `+142 −38` and `12 files` chips.
     case showChanges
     /// Open the rebase sheet (design 5a/5b): the `⤿ 7 behind main` chip.
     case rebaseOntoBase

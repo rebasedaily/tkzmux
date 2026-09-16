@@ -1,4 +1,4 @@
-// PortScannerTests — M4.3 / TKZ-28.
+// PortScannerTests — M4.3.
 //
 // These are only meaningfully testable against real processes: `PortScanner` walks the live
 // process table via libproc, so the tests spawn an actual listening process (a Python HTTP

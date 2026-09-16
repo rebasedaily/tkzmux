@@ -1,4 +1,4 @@
-// DisplayLinkDriver — the parked-unless-there-is-work frame clock (M1.6 / TKZ-12).
+// DisplayLinkDriver — the parked-unless-there-is-work frame clock (M1.6).
 // See docs/design.md → Terminal engine → View & input.
 //
 // The whole point of tkzmux's renderer is that an idle terminal costs nothing: the renderer's skip

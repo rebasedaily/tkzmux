@@ -1,4 +1,4 @@
-// RenameAndDoneTests — the two GUI-pass follow-ups of 2026-09-08 (M3.4 / TKZ-24):
+// RenameAndDoneTests — the two GUI-pass follow-ups of 2026-09-08 (M3.4):
 // ⇧⌘R had no handler, and a fresh Stop drew as plain idle.
 
 import AppKit

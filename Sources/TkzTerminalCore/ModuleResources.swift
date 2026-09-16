@@ -6,7 +6,7 @@
 // `codesign --strict` rejects anything except `Contents` at an app-bundle root ("unsealed contents
 // present in the bundle root"), and that was confirmed for a bundle at the root, a symlink at the
 // root, and a pre-signed bundle carrying its own Info.plist. The two rules are irreconcilable, so
-// `Bundle.module` **fatalErrors inside build/tkzmux.app** (verified M1.9 / TKZ-15).
+// `Bundle.module` **fatalErrors inside build/tkzmux.app** (verified M1.9).
 //
 // `Bundle.main.resourceURL` is `Contents/Resources` in an `.app` and the executable's own directory
 // under `swift run`, so it covers both. `Bundle.module` is evaluated **last** and only as the

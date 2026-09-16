@@ -1,4 +1,4 @@
-// LastMessagePopoverTests — M3.4 (TKZ-24).
+// LastMessagePopoverTests — M3.4.
 //
 // `NSPopover.show(relativeTo:of:)` needs the anchor view attached to a real window (an unattached
 // view has no window server connection to anchor against), so — like `SidebarViewControllerTests` —

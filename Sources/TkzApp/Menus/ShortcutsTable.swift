@@ -1,4 +1,4 @@
-// ShortcutsTable.swift — the app's key bindings as data (M2.4 / TKZ-20).
+// ShortcutsTable.swift — the app's key bindings as data (M2.4).
 //
 // design.md → Decisions → Shortcuts: the cmux bindings, workspace → session and tab → terminal:
 //   ⌘N new session (picker), ⌘F search sessions (cmux: ⌘P), ⇧⌘P command palette, ⌘B sidebar, ⇧⌘R rename session,
@@ -34,10 +34,10 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     /// ⌘W — closes the focused pane. When it is the row's last terminal it falls through to
     /// removing the row (shell, snapshot and all), with the same confirmation as ⇧⌘W. The id was
     /// "close terminal, keep the row" until 2026-09-08 and briefly meant "remove the row"; since
-    /// TKZ-36 it means what it says again.
+    /// the pane split it means what it says again.
     public static let closeTerminal = ShortcutAction("closeTerminal")
     /// ⇧⌘W — removes the row outright, however many panes it has. `docs/shortcuts.md` has
-    /// documented this since M2.4; TKZ-36 is where it became real.
+    /// documented this since M2.4; the pane split is where it became real.
     public static let closeSession = ShortcutAction("closeSession")
     public static let jumpToNeedsYou = ShortcutAction("jumpToNeedsYou")
     public static let notifications = ShortcutAction("notifications")
@@ -45,7 +45,7 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     public static let openFolder = ShortcutAction("openFolder")
     public static let reloadConfig = ShortcutAction("reloadConfig")
     /// No default — reachable through an override or the palette. ⌘T/⌘D went to the terminal
-    /// (TKZ-36), which is what they were reserved for.
+    ///, which is what they were reserved for.
     public static let nextSession = ShortcutAction("nextSession")
     public static let previousSession = ShortcutAction("previousSession")
     /// ⇧⌘C — copies the selected session's last Stop message (M3.4).
@@ -54,8 +54,8 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     /// 2c.5). The artboard says ⇧⌘P, but that is the command palette in the cmux bindings, so
     /// "P for prompt" takes the ⌥ chord instead. Toggles.
     public static let showFirstPrompt = ShortcutAction("showFirstPrompt")
-    /// ⇧⌘G — the view-only changes viewer over the terminal (design 2c.2 / TKZ-58). The artboard
-    /// says ⌘D, but that is *Split Vertically* in the cmux bindings (TKZ-36), so "G for git"
+    /// ⇧⌘G — the view-only changes viewer over the terminal (design 2c.2). The artboard
+    /// says ⌘D, but that is *Split Vertically* in the cmux bindings, so "G for git"
     /// takes the shift chord. Toggles; Esc also closes it.
     public static let showChanges = ShortcutAction("showChanges")
     /// ⌥⌘R — the rebase sheet for the selected session's branch: fetch the repo's base branch
@@ -63,33 +63,15 @@ public struct ShortcutAction: Hashable, Sendable, RawRepresentable, CustomString
     /// *Resume Session* and ⇧⌘R is *Rename*, so "R for rebase" takes the ⌥ chord. Also the
     /// `⤿ 7 behind main` chip in the status bar. Enabled only while the branch is behind its base.
     public static let rebaseOntoBase = ShortcutAction("rebaseOntoBase")
-    /// No key: deletes `bin/` and `zsh/` under Application Support so new shells are plain (M3.3).
-    public static let removeShellIntegration = ShortcutAction("removeShellIntegration")
-    /// No key: installs (or removes) tkzmux's `statusLine` command in `~/.claude/settings.json`,
-    /// which is what fills the Context / model / Usage segments (TKZ-32). Always behind consent.
-    public static let statusLineIntegration = ShortcutAction("statusLineIntegration")
     /// ⌘R — `claude --resume` the selected row's conversation in its directory (M5.2).
     public static let resumeSession = ShortcutAction("resumeSession")
     /// No key: resume every resumable row in the selected session's group (M5.2).
     public static let resumeAllInGroup = ShortcutAction("resumeAllInGroup")
-    /// No key: the "auto-resume on launch" preference, shown with a checkmark (M5.2).
-    public static let toggleAutoResume = ShortcutAction("toggleAutoResume")
-    /// No key: the token usage/spend feature's global on/off, shown with a checkmark (design:
-    /// enable/disable, all sessions). The per-session opt-out lives on the row's context menu
-    /// instead — it names one session, which an app-menu checkbox cannot.
-    public static let toggleSessionSpend = ShortcutAction("toggleSessionSpend")
-    /// No key: fetch every tracked repo's base branch every 5 min so the `⤿ 7 behind main` chip stays
-    /// honest, shown with a checkmark. Off by default — it is background network activity.
-    public static let toggleOriginCheck = ShortcutAction("toggleOriginCheck")
-    /// No key: post a macOS notification when Claude finishes a turn in a row the user is not
-    /// looking at. Shown with a checkmark, on by default (TKZ-74). The NEEDS YOU banner has no
-    /// switch here — macOS's per-app notification setting is the master switch for both.
-    public static let toggleDoneNotification = ShortcutAction("toggleDoneNotification")
     /// No key: flip between the dark preset and its light twin — the ☾/☀ segment's command form.
     /// No checkmark: this is a flip between two named appearances, not a boolean that is on or off.
     public static let toggleTheme = ShortcutAction("toggleTheme")
 
-    // MARK: Panes and tabs (TKZ-36)
+    // MARK: Panes and tabs
 
     /// ⌘T — another terminal in this session, as a new tab.
     public static let newTerminal = ShortcutAction("newTerminal")
@@ -191,16 +173,14 @@ public enum ShortcutsTable {
             .newSession, .searchSessions, .commandPalette, .toggleSidebar, .renameSession,
             .closeTerminal, .closeSession, .jumpToNeedsYou, .notifications, .settings,
             .openFolder, .reloadConfig, .nextSession, .previousSession, .copyLastMessage,
-            .showFirstPrompt, .showChanges, .rebaseOntoBase, .removeShellIntegration, .statusLineIntegration,
-            .resumeSession, .resumeAllInGroup,
-            .toggleAutoResume, .toggleSessionSpend, .toggleOriginCheck,
-            .toggleDoneNotification, .toggleTheme,
+            .showFirstPrompt, .showChanges, .rebaseOntoBase,
+            .resumeSession, .resumeAllInGroup, .toggleTheme,
             .newTerminal, .splitVertically, .splitHorizontally,
             .focusPaneLeft, .focusPaneRight, .focusPaneUp, .focusPaneDown,
             .equalizeSplits, .zoomPane, .previousTab, .nextTab,
         ] + (1...9).map { ShortcutAction.selectSession($0) }
 
-    /// The cmux bindings, plus ⇧⌘C (M3.4), ⌘R (M5.2) and the pane/tab set (TKZ-36).
+    /// The cmux bindings, plus ⇧⌘C (M3.4), ⌘R (M5.2) and the pane/tab set.
     /// `nextSession`/`previousSession` remain absent on purpose: cmux binds no default for them,
     /// and the keys they were reserved against — ⌘T, ⌘D and the ⌥⌘ arrows — now belong to the
     /// terminal, which is what "reserved" meant.
@@ -261,14 +241,8 @@ public enum ShortcutsTable {
         case .showChanges: "Show Changes"
         // Static like `.toggleTheme`: the sheet and the notices name the real ref.
         case .rebaseOntoBase: "Rebase onto Base Branch\u{2026}"
-        case .removeShellIntegration: "Remove Shell Integration"
-        case .statusLineIntegration: "Status Line Integration\u{2026}"
         case .resumeSession: "Resume Session"
         case .resumeAllInGroup: "Resume All in Group"
-        case .toggleAutoResume: "Auto-resume Sessions on Launch"
-        case .toggleSessionSpend: "Show Token Usage & Spend"
-        case .toggleOriginCheck: "Check Origin Periodically"
-        case .toggleDoneNotification: "Notify When Claude Finishes"
         // Static on purpose: `MainMenuTests` asserts the menu item's title equals this, so a
         // state-dependent "Switch to Light…" would fail on every toggle.
         case .toggleTheme: "Toggle Light / Dark Theme"

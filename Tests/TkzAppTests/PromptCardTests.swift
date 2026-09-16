@@ -284,7 +284,7 @@ struct PromptCardTests {
         #expect(!controller.promptCard.isShown)
     }
 
-    // MARK: The search overlay's hit (TKZ-52, design 2c.6)
+    // MARK: The search overlay's hit (design 2c.6)
 
     @Test("A transcript hit takes over the top block and keeps the recap below it")
     func transcriptHit() throws {

@@ -1,4 +1,4 @@
-// UpdateCheckerTests — the release check, offline (TKZ-50).
+// UpdateCheckerTests — the release check, offline.
 //
 // The transport is a closure, so every case here is a canned `(Data, status)` and no socket is
 // ever opened. The three-way result is the contract: `available` shows the card, `upToDate`

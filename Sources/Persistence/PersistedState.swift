@@ -7,7 +7,7 @@
 //     nothing like design.md's `groups[]` / `sessions[]`;
 //   * `CGRect` encodes as `[[x, y], [w, h]]`, where the ticket asks for explicit keys;
 //   * `accounts`, `usage` and `update` are not durable at all. Accounts come from config, usage
-//     from `UsageReader` and `update` from the release check (TKZ-50); persisting any of them
+//     from `UsageReader` and `update` from the release check; persisting any of them
 //     would mean restoring a stale reading as if it were current. Only the *dismissed* update
 //     version is kept, in `preferences`.
 //
@@ -63,9 +63,9 @@ public struct PersistedSidebar: Hashable, Sendable, Codable {
 public struct PersistedPreferences: Hashable, Sendable, Codable {
     /// `claude --resume` every restored row at launch.
     public var autoResumeOnLaunch: Bool
-    /// The statusline consent sheet has been shown once (TKZ-32).
+    /// The statusline consent sheet has been shown once.
     public var statuslineOffered: Bool
-    /// The release whose "Update available" card was closed (TKZ-50); `nil` = none dismissed.
+    /// The release whose "Update available" card was closed; `nil` = none dismissed.
     public var dismissedUpdateVersion: String?
     /// `Theme.Preset.rawValue`; `nil` = never chosen, so the default preset stands.
     ///

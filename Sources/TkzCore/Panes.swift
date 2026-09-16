@@ -1,4 +1,4 @@
-// Panes and tabs — the split tree a session's content area is laid out from (TKZ-36).
+// Panes and tabs — the split tree a session's content area is laid out from.
 //
 // A session owns an ordered list of `Tab`s; each tab owns a strictly **binary** tree of panes.
 // Binary is a deliberate constraint: with an N-ary node every operation here (`setRatio`,

@@ -1,4 +1,4 @@
-// StartupStateTests — M2.5 (TKZ-43): the state a fresh install comes up in, and tilde expansion.
+// StartupStateTests — M2.5: the state a fresh install comes up in, and tilde expansion.
 
 import Foundation
 import Testing

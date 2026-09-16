@@ -1,4 +1,4 @@
-// UpgradeCapability — may the update card offer "Update via Homebrew"? (TKZ-50)
+// UpgradeCapability — may the update card offer "Update via Homebrew"?
 //
 // Three facts, decided once at launch: `brew` exists, the cask is installed (its Caskroom
 // directory is there), and the running bundle *is* the cask's `/Applications/tkzmux.app` — a

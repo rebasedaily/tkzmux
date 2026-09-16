@@ -1,4 +1,4 @@
-// FrameBuilderTests — the CPU half of M1.5 (TKZ-11): no Metal device is needed for any of these.
+// FrameBuilderTests — the CPU half of M1.5: no Metal device is needed for any of these.
 //
 // Each test here pins one *measured* spike finding from docs/design.md → Spike results (M1.1–M1.3)
 // into executable form, so a libghostty upgrade that changes the behaviour fails here rather than
@@ -515,7 +515,7 @@ func setSelection(
     }
 }
 
-// MARK: - Scroll metrics (TKZ-45)
+// MARK: - Scroll metrics
 //
 // The builder polls `DATA_SCROLLBAR` because libghostty offers no change notification for scroll
 // state. Where that read sits — and what it is careful *not* to do — is the whole design.

@@ -1,4 +1,4 @@
-// RecordingTests — the `.tkzrec` container and replay (M1.3 / TKZ-9).
+// RecordingTests — the `.tkzrec` container and replay (M1.3).
 //
 // Two kinds of fixture live here:
 //   * synthetic ones built in code (and `Fixtures/synthetic-basic.tkzrec`), used to test the
@@ -206,7 +206,7 @@ private func replayed(_ name: String) throws -> TerminalSession {
     #expect(session.mouseTrackingEnabled == true)
     // Measured, not assumed: the recording contains `ESC [ > 5 u`, so Claude Code 2.1.263 pushes
     // DISAMBIGUATE | REPORT_ALL, not the `CSI > 1 u` / flags 1 the planning notes recorded. Key
-    // encoding (TKZ-13) must be exercised against 5, because REPORT_ALL changes how every key —
+    // encoding must be exercised against 5, because REPORT_ALL changes how every key —
     // Shift+Enter included — is encoded.
     #expect(session.kittyKeyboardFlags == 5)
     #expect(session.title == "✳ Claude Code")

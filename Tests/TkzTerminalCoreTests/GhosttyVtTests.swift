@@ -25,7 +25,7 @@ private func lines(_ screen: String) -> [String] {
         #expect(GhosttyVtInfo.optimizeName == "ReleaseFast")
     }
 
-    /// TKZ-7 acceptance: 80×24, write "hello", PLAIN format → first line starts with hello.
+    /// M1.1 acceptance: 80×24, write "hello", PLAIN format → first line starts with hello.
     @Test func smokeHello() throws {
         let terminal = try GhosttyTerminalHandle(cols: 80, rows: 24)
         terminal.write("hello")

@@ -3,7 +3,7 @@ import Testing
 
 @testable import ClaudeBridge
 
-/// Searching inside a Claude transcript (TKZ-52, design 2c.6's Transcripts section).
+/// Searching inside a Claude transcript (design 2c.6's Transcripts section).
 ///
 /// The fixture below is the line shape a real `~/.claude/projects/**/*.jsonl` has: prompts, answers
 /// with `text` and `tool_use` blocks, sidechains and meta lines that must not be indexed at all.

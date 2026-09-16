@@ -24,7 +24,7 @@ extern "C" {
 #endif
 
 /// Shim ABI version. Bumped when the spawn contract changes.
-/// 1 = M0.1 stub, 2 = M1.2 (TKZ-8) spawn/resize/proc-info contract.
+/// 1 = M0.1 stub, 2 = M1.2 spawn/resize/proc-info contract.
 int32_t tkz_pty_shim_version(void);
 
 /// What to launch. All pointers are borrowed for the duration of the call only.

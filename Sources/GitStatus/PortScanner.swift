@@ -1,4 +1,4 @@
-// PortScanner — listening TCP ports under a session's process tree (M4.3 / TKZ-28).
+// PortScanner — listening TCP ports under a session's process tree (M4.3).
 //
 // A dev server spawned by Claude (or by a shell it drove) shows up as a listening TCP socket on
 // some descendant pid, not necessarily the session's own pid — `npm run dev` forks node, which may

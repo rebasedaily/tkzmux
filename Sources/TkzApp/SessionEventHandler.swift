@@ -1,4 +1,4 @@
-// SessionEventHandler — M1.9 (TKZ-15): the app-level meaning of a `TerminalEvent`.
+// SessionEventHandler — M1.9: the app-level meaning of a `TerminalEvent`.
 //
 // `TerminalSession` produces events; this type decides what they *mean* to the application:
 // which ones become published state a window binds to, which one becomes a macOS user

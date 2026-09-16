@@ -1,6 +1,6 @@
 // Tests for HookServer's socket protocol: framing, malformed-line recovery, stale-socket cleanup,
 // start/stop lifecycle. Exercises the server directly over a real AF_UNIX socket — no tkzmux-hook
-// binary involved (that's HookBinaryTests). M3.2 (TKZ-22).
+// binary involved (that's HookBinaryTests). M3.2.
 import Darwin
 import Foundation
 import Synchronization

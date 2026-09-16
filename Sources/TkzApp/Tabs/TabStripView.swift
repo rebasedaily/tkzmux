@@ -1,4 +1,4 @@
-// The tab strip, drawn entirely with layers (TKZ-36).
+// The tab strip, drawn entirely with layers.
 //
 // No subviews, for the reason `SessionRowView` states: a subview's backing layer is not grafted
 // into the tree until the hierarchy reaches a window, so a strip built from subviews is missing

@@ -1,4 +1,4 @@
-// FontSet — CoreText font resolution for the terminal grid (M1.4 / TKZ-10).
+// FontSet — CoreText font resolution for the terminal grid (M1.4).
 // See docs/design.md → Terminal engine → Metal renderer.
 //
 // The bundled JetBrains Mono faces live in `Bundle.module/Fonts`. Outside an app bundle

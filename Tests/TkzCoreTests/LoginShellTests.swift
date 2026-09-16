@@ -1,4 +1,4 @@
-// LoginShellTests — TKZ-33: which shell a session runs, and the argv/layout contract shared by the
+// LoginShellTests — which shell a session runs, and the argv/layout contract shared by the
 // pty and the installer. Pure: nothing here spawns a shell (see ClaudeBridgeTests' harness).
 import Foundation
 import Testing

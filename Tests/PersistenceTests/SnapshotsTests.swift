@@ -1,4 +1,4 @@
-// SnapshotsTests — the `.ghsnap` store and the background-session idle policy (M1.10 / TKZ-16).
+// SnapshotsTests — the `.ghsnap` store and the background-session idle policy (M1.10).
 //
 // Every test writes into a fresh directory under `FileManager.default.temporaryDirectory` and
 // removes it afterwards: nothing here may touch `~/Library/Application Support/tkzmux`.

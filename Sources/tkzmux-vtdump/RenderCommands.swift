@@ -1,4 +1,4 @@
-// RenderCommands — the `render` and `atlas` subcommands of tkzmux-vtdump (M1.5 / TKZ-11).
+// RenderCommands — the `render` and `atlas` subcommands of tkzmux-vtdump (M1.5).
 // See docs/design.md → *Testing without UI*.
 //
 //   tkzmux-vtdump render --out <out.png> [--cols n --rows n] <file.tkzrec>

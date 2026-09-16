@@ -1,8 +1,8 @@
-// AppDelegate — opens `MainWindowController` (M2.2 / TKZ-18), the real window: sidebar, terminal,
+// AppDelegate — opens `MainWindowController` (M2.2), the real window: sidebar, terminal,
 // status bar, unified toolbar and the menu bar built from `ShortcutsTable`.
 //
 // `DevWindowController` (M1.6 / M1.10) stays reachable behind **`TKZMUX_DEV_WINDOW=1`**: it carries
-// the TKZ-16 performance harness (`TKZMUX_DEV_SPAWN`, `TKZMUX_DEV_SWITCH_BENCH`, the snapshot
+// the M1.10 performance harness (`TKZMUX_DEV_SPAWN`, `TKZMUX_DEV_SWITCH_BENCH`, the snapshot
 // sweeps, the heartbeat) that `docs/perf.md` and `docs/manual-checks.md` document command lines
 // for. Losing it would invalidate the documented acceptance runs, so it is one env var away:
 //
@@ -91,9 +91,9 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 // the shim live in; nothing here blocks the launch.
                 if let host = controller.host as? TerminalViewHost {
                     // M5.2: snapshots whose row is gone (`Remove` while the app was not running,
-                    // a hand-edited state.json) are deleted now. TKZ-29 left this to this ticket.
+                    // a hand-edited state.json) are deleted now.
                     // Every leaf of every tab, not just the row ids: a `.ghsnap` belongs to a
-                    // *terminal* (TKZ-36), and a background tab's panes have one on disk long
+                    // *terminal*, and a background tab's panes have one on disk long
                     // before they are restored. On a file migrated from schema v1 this set is
                     // byte-identical to the old `sessions.keys`, which is the cheapest possible
                     // proof that the v1→v2 lift kept every snapshot addressable.
@@ -113,12 +113,12 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 let gitIntegration = GitIntegration(store: store)
                 controller.git = gitIntegration
                 git = gitIntegration
-                // TKZ-74: the NEEDS YOU banner + ping. After the window, so the permission dialog
+                // The NEEDS YOU banner + ping. After the window, so the permission dialog
                 // it may raise lands on a visible app; after `claude`, whose hooks make the flips.
                 let notifier = AttentionNotifier(store: store)
                 controller.attention = notifier
                 attention = notifier
-                // TKZ-50: the sidebar's update card. Release builds only (a dev build checks
+                // The sidebar's update card. Release builds only (a dev build checks
                 // when `TKZMUX_UPDATE_URL` points it at a feed); the first check is 15 s out.
                 if UpdateIntegration.shouldRun() {
                     let updateIntegration = UpdateIntegration(store: store)
@@ -128,7 +128,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                 // After the integration: every `claude --resume` must run through the shim the
                 // installer just wrote, so the launch frame binds its pid.
                 if restored.loaded != nil { controller.autoResumeIfEnabled() }
-                // TKZ-32: the one-time statusline offer. Async so the launch is never blocked on a
+                // The one-time statusline offer. Async so the launch is never blocked on a
                 // modal, and last so `bin/tkzmux-hook` — the command it writes into settings.json —
                 // is already on disk.
                 //
@@ -221,7 +221,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// The state the main window starts from: `state.json` merged over one group for the home
-    /// directory (M5.1 / TKZ-29). A missing or empty file leaves the startup group in place, so a
+    /// directory (M5.1). A missing or empty file leaves the startup group in place, so a
     /// first run and a run after a wiped state file look the same.
     ///
     /// `TKZMUX_FIXTURE` neither loads nor saves. Merging 40 fabricated, deliberately unlaunchable

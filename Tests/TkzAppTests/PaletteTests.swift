@@ -5,7 +5,7 @@ import TkzCore
 
 @testable import TkzApp
 
-/// ⌘P / ⇧⌘P over the 40-session fixture (TKZ-20, M2.4).
+/// ⌘P / ⇧⌘P over the 40-session fixture (M2.4).
 ///
 /// **On the ticket's two named cases.** The ticket asks for `"wor-12"` (by branch) and
 /// `"Track updated"` (by title). Neither string exists in `AppState.fixture`, and `FixtureState.swift`
@@ -91,19 +91,19 @@ struct PaletteTests {
         #expect(top.item.trailing == "\u{21E7}\u{2318}P")
     }
 
-    /// TKZ-53's acceptance: ⇧⌘P shows only commands that do something.
+    /// The handler filter's acceptance: ⇧⌘P shows only commands that do something.
     @Test func commandRowsExistOnlyForActionsTheDispatcherCanPerform() throws {
-        let performable = Set(ShortcutsTable.allActions).subtracting([.settings, .notifications])
+        let performable = Set(ShortcutsTable.allActions).subtracting([.reloadConfig, .notifications])
         let source = PaletteDataSource(state: Self.state, mode: .all, commands: performable)
         let ids = Set(source.items.filter { $0.kind == .command }.map(\.actionID))
 
-        #expect(!ids.contains(ShortcutAction.settings.rawValue))
+        #expect(!ids.contains(ShortcutAction.reloadConfig.rawValue))
         #expect(!ids.contains(ShortcutAction.notifications.rawValue))
         #expect(ids.contains(ShortcutAction.commandPalette.rawValue))
         #expect(ids.count == performable.count)
 
         // Not merely unranked: searching for it by name finds nothing.
-        #expect(source.search("Settings").allSatisfy { $0.item.kind != .command })
+        #expect(source.search("Reload Config").allSatisfy { $0.item.kind != .command })
 
         // Membership changes, order does not: it is still the main menu's.
         let all = PaletteDataSource(state: Self.state, mode: .all)
@@ -120,10 +120,11 @@ struct PaletteTests {
         #expect(palette.performableCommands == harness.controller.dispatcher.performableActions)
 
         let ids = Set(palette.dataSource.items.filter { $0.kind == .command }.map(\.actionID))
-        for dead in [ShortcutAction.settings, .notifications, .reloadConfig] {
+        for dead in [ShortcutAction.notifications, .reloadConfig] {
             #expect(!ids.contains(dead.rawValue), "\(dead.rawValue) has no handler and must not be a row")
         }
-        #expect(ids.contains(ShortcutAction.openFolder.rawValue), "⌘O works — TKZ-54")
+        #expect(ids.contains(ShortcutAction.openFolder.rawValue), "⌘O works")
+        #expect(ids.contains(ShortcutAction.settings.rawValue), "⌘, works")
     }
 
     @Test func sectionsComeBackGroupedInDisplayOrder() throws {

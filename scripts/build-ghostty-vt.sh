@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Vendor libghostty-vt as a prebuilt arm64 xcframework at a pinned commit (M1.1 / TKZ-7).
+# Vendor libghostty-vt as a prebuilt arm64 xcframework at a pinned commit (M1.1).
 # See docs/design.md → Terminal engine → Packaging.
 #
 #   GHOSTTY_COMMIT   full sha to vendor (default: vendor/ghostty-vt/COMMIT)
@@ -55,7 +55,7 @@ build_seconds=$((SECONDS - build_start))
 LIB="$GHOSTTY_SRC/zig-out/lib/libghostty-vt.a"
 [[ -f "$LIB" ]] || die "expected $LIB after zig build"
 
-# Strip debug info before vendoring (M6.5 / TKZ-40). Zig bakes absolute paths from its build
+# Strip debug info before vendoring (M6.5). Zig bakes absolute paths from its build
 # cache into the DWARF of every object — on this machine `/Users/<name>/.cache/zig/b/<hash>` —
 # and this archive is COMMITTED, so those paths would ship in a public repo. `strings` over the
 # archive is how they were found; `git grep` never sees them because it skips binaries.

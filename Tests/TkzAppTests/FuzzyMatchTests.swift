@@ -3,7 +3,7 @@ import Testing
 
 @testable import TkzApp
 
-/// The matcher behind ⌘P / ⇧⌘P (TKZ-20, M2.4). Pure value tests — no AppKit, no window.
+/// The matcher behind ⌘P / ⇧⌘P (M2.4). Pure value tests — no AppKit, no window.
 struct FuzzyMatchTests {
 
     static func score(_ query: String, _ text: String) -> Int? {

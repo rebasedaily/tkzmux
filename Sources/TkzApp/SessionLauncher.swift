@@ -1,4 +1,4 @@
-// SessionLauncher — every way a shell gets behind a sidebar row (M5.2 / TKZ-30).
+// SessionLauncher — every way a shell gets behind a sidebar row (M5.2).
 //
 // design.md → *Session flows & persistence*. The window controller used to own `launch(_:)`
 // directly (M2.5); this type takes that over and adds the rest of the lifecycle:
@@ -209,7 +209,7 @@ public final class SessionLauncher {
 
         guard !pids.isEmpty else { return .failure(firstFailure ?? .spawnFailed("no pane spawned")) }
 
-        // `live` stays row-level by design (TKZ-36): the row's `shellPid` is the focused pane's,
+        // `live` stays row-level by design: the row's `shellPid` is the focused pane's,
         // and `panePids` carries the rest so the port scanner and the hook relay's ppid fallback
         // can see a shell in any pane.
         let shellPid = pids[focused] ?? pids.first?.value

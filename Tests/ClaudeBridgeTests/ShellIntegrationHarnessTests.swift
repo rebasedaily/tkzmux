@@ -1,4 +1,4 @@
-// ShellIntegrationHarnessTests — TKZ-33's shared harness: every login shell tkzmux supports, spawned
+// ShellIntegrationHarnessTests — the login-shell work's shared harness: every login shell tkzmux supports, spawned
 // the way the app spawns it (`TerminalEnvironment.loginShellSpawn` on a real `Pty`, wrappers
 // written by the real `ShimInstaller`), against a fake HOME with the user's own startup files.
 //

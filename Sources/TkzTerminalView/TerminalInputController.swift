@@ -1,8 +1,8 @@
-// TerminalInputController — NSEvent → `KeyPress` → pty bytes (M1.7 / TKZ-13).
+// TerminalInputController — NSEvent → `KeyPress` → pty bytes (M1.7).
 // See docs/design.md → Terminal engine → *View & input* → **Keyboard**, and docs/keys.md.
 //
 // This is the single `TerminalViewInputDelegate`: it owns the keyboard and IME, and forwards every
-// mouse/scroll event to a `TerminalMouseHandling` (TKZ-14) without interpreting it.
+// mouse/scroll event to a `TerminalMouseHandling` without interpreting it.
 //
 // ## What lives here and what deliberately does not
 //
@@ -45,7 +45,7 @@ import os
 
 // MARK: - Mouse seam
 
-/// The seam TKZ-14's `MouseController` implements.
+/// The seam the `MouseController` implements.
 ///
 /// `TerminalInputController` is the only `TerminalViewInputDelegate`; every mouse and scroll event
 /// the view forwards is routed here unchanged, with the view it came from.
@@ -75,7 +75,7 @@ public final class TerminalInputController: TerminalViewInputDelegate {
     /// **Normally nil, and nil is now the working case**: with no override the controller calls
     /// `TerminalSession.encodeKey(_:optionAsAlt:)` on the view's own visible session, which runs
     /// `KeyEncoder` under the session lock against the live terminal — the seam that did not exist
-    /// while TKZ-13 was written. The closure stays as a test hook (and as the seam a host with no
+    /// while the keyboard controller was written. The closure stays as a test hook (and as the seam a host with no
     /// `TerminalSession` would fill in); it is never a text pass-through fallback, because Enter,
     /// the cursor keys and every Ctrl combination would be silently wrong.
     public var encodeKey: (@MainActor (KeyPress) throws -> [UInt8])?
@@ -100,7 +100,7 @@ public final class TerminalInputController: TerminalViewInputDelegate {
     /// final report), so this is the hook the overlay will hang off.
     public var onPreeditChange: (@MainActor (String) -> Void)?
 
-    /// TKZ-14's `MouseController`. Weak: the app owns it, exactly as it owns this controller.
+    /// the `MouseController`. Weak: the app owns it, exactly as it owns this controller.
     public weak var mouseHandler: (any TerminalMouseHandling)?
 
     /// How the Option key behaves. `.never` is the macOS-native default and the only setting under

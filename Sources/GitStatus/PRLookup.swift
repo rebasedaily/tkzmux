@@ -1,4 +1,4 @@
-// PRLookup — `gh pr view`, gated so it never runs against a non-GitHub origin (M4.2 / TKZ-27).
+// PRLookup — `gh pr view`, gated so it never runs against a non-GitHub origin (M4.2).
 //
 // design.md → *Git integration*: git calls are background calls that must never contend with the
 // user's own git or hang on a prompt (see GitProcess). PRLookup adds one more constraint on top:

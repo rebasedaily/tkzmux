@@ -1,4 +1,4 @@
-// TerminalMetalView+TextInput — `NSTextInputClient` (M1.7 / TKZ-13).
+// TerminalMetalView+TextInput — `NSTextInputClient` (M1.7).
 //
 // `NSTextInputClient` is declared here rather than on `TerminalMetalView` itself so the view stays
 // free of input policy: conformance is what makes `NSView.inputContext` non-nil, and everything the
@@ -19,7 +19,7 @@ import TkzTerminalCore
 // conformance). AppKit only ever calls an input client from the main thread, and the conformance is
 // found through the ObjC runtime rather than a generic context, so nothing can reach it off-main.
 extension TerminalMetalView: @MainActor NSTextInputClient {
-    /// The keyboard controller, when one is installed. TKZ-14's mouse handler is reached through
+    /// The keyboard controller, when one is installed. The mouse handler is reached through
     /// it, so `inputDelegate` is always the `TerminalInputController` in practice.
     private var inputController: TerminalInputController? {
         inputDelegate as? TerminalInputController
@@ -39,7 +39,7 @@ extension TerminalMetalView: @MainActor NSTextInputClient {
     }
 
     /// The terminal has no editable text behind the cursor, so the "selection" for input purposes
-    /// is the empty range at the insertion point. (Text selection on screen is TKZ-14's
+    /// is the empty range at the insertion point. (Text selection on screen is the mouse controller's
     /// `SelectionController` and is a different concept entirely.)
     public func selectedRange() -> NSRange {
         guard let controller = inputController, controller.hasMarkedText else {

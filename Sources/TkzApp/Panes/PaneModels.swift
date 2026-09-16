@@ -1,4 +1,4 @@
-// Fixed geometry for the split container (TKZ-36).
+// Fixed geometry for the split container.
 //
 // Same role as `SidebarMetrics`: the numbers the design fixes, in one place, so a view never
 // invents one inline. Nothing here is a theme token — colours come from `Theme`.

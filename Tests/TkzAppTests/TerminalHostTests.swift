@@ -1,10 +1,10 @@
-// TerminalHostTests — M1.10 (TKZ-16).
+// TerminalHostTests — M1.10.
 //
 // What these prove, in order of how much they matter:
 //
 //   1. **An unattached terminal costs only IO.** With 30 terminals open, only the ones actually
 //      shown have a surface; each holds its own terminal and no other, and bytes written to an
-//      *unattached* one neither wake any display link nor allocate render state. Until TKZ-36 this
+//      *unattached* one neither wake any display link nor allocate render state. Until the pane split this
 //      was stated as "exactly one surface" — split panes make that count wrong, but the property
 //      that mattered was always the cost, not the cardinality. The view-layer test
 //      (`TerminalMetalViewTests.showSwapsSurfaces`) proves the mechanism for two sessions; this
@@ -192,7 +192,7 @@ private func waitForHost(
 @Suite("TerminalHost — background sessions", .serialized)
 @MainActor
 struct BackgroundSessionTests {
-    /// The headline invariant, at the ticket's scale — restated for panes (TKZ-36).
+    /// The headline invariant, at the ticket's scale — restated for panes.
     ///
     /// The count of surfaces is now the app's business (one per visible pane); what the host still
     /// guarantees is that a terminal nobody is looking at holds no render memory at all.
@@ -389,7 +389,7 @@ struct BackgroundSessionTests {
         #expect(try FileManager.default.contentsOfDirectory(atPath: zdotdir.path).isEmpty)
     }
 
-    /// TKZ-33: the host spawns the login shell `SHELL` names, and a pane is titled after it until
+    /// The host spawns the login shell `SHELL` names, and a pane is titled after it until
     /// the shell sets a title of its own. The wrapper is not on disk here, so bash is started as a
     /// plain login shell rather than with `--rcfile <missing file>`.
     @Test("the host follows the login shell in its environment")
@@ -478,8 +478,21 @@ struct BackgroundSessionTests {
         host.close(background, signal: SIGKILL)
         host.close(visible, signal: SIGKILL)
         host.close(alsoVisible, signal: SIGKILL)
-        try? await Task.sleep(for: .milliseconds(250))
 
+        // A fixed 250 ms was enough on an idle machine and not under the whole target running in
+        // parallel, where the shells' last bytes landed after the baseline was taken and the test
+        // flaked. Settle on the links themselves: clear the demand, wait, and only take the
+        // baseline once two consecutive windows saw neither view asked for a frame.
+        var quietWindows = 0
+        for _ in 0..<40 where quietWindows < 2 {
+            view.frameDriver.update { $0.needsUpdate = false }
+            second.frameDriver.update { $0.needsUpdate = false }
+            let resumes = (view.frameDriver.resumeCount, second.frameDriver.resumeCount)
+            try? await Task.sleep(for: .milliseconds(150))
+            let woke = view.frameDriver.demand.needsUpdate || second.frameDriver.demand.needsUpdate
+                || resumes != (view.frameDriver.resumeCount, second.frameDriver.resumeCount)
+            quietWindows = woke ? 0 : quietWindows + 1
+        }
         // The attach itself legitimately asks for a frame; start from a clean slate.
         view.frameDriver.update { $0.needsUpdate = false }
         second.frameDriver.update { $0.needsUpdate = false }

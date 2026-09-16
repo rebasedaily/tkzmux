@@ -34,7 +34,16 @@ public final class RebaseSheetController: NSObject, NSWindowDelegate {
 
     public private(set) var sessionID: SessionID?
     private(set) var model: RebaseSheetModel?
-    public var isShown: Bool { panel?.isVisible ?? false }
+    /// Between `present` and `dismiss`. A flag rather than `panel.isVisible`, so a test that keeps
+    /// the panel off screen (see `orderFront`) still sees the sheet as shown.
+    public private(set) var isShown = false
+
+    /// How the panel comes to the front. Tests replace it: a panel ordered front for real in the
+    /// test process asks AppKit for events, and the first such request starts the event-pulling
+    /// thread that later stops the main run loop — which Swift's async-main drain answers with
+    /// `exit(0)`, ending the run "passed" mid-way. It also throws key and occlusion
+    /// notifications at every other window the run has open.
+    var orderFront: (NSWindow) -> Void = { $0.makeKeyAndOrderFront(nil) }
 
     private var panel: PromptCardPanel?
     private var effectView: NSVisualEffectView?
@@ -91,17 +100,19 @@ public final class RebaseSheetController: NSObject, NSWindowDelegate {
         let panel = makePanelIfNeeded()
         sheetView?.setModel(model)
         place(panel)
-        panel.makeKeyAndOrderFront(nil)
+        isShown = true
+        orderFront(panel)
         guard let request, model.phase == .fetching else { return }
         startFetch(request, generation: generation, id: id)
     }
 
     /// Escape, Cancel, a click outside, the chord again, a selection change, the rebase's end.
     public func dismiss() {
-        guard let panel, panel.isVisible || sessionID != nil else { return }
+        guard let panel, isShown || sessionID != nil else { return }
         generation &+= 1
         sessionID = nil
         model = nil
+        isShown = false
         panel.orderOut(nil)
         onDismiss?()
     }
@@ -129,7 +140,7 @@ public final class RebaseSheetController: NSObject, NSWindowDelegate {
     private func update(_ model: RebaseSheetModel) {
         self.model = model
         sheetView?.setModel(model)
-        if let panel, panel.isVisible { place(panel) }
+        if let panel, isShown { place(panel) }
     }
 
     // MARK: Fetch

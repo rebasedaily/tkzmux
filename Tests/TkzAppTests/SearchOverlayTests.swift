@@ -5,7 +5,7 @@ import TkzCore
 
 @testable import TkzApp
 
-/// The results overlay's sections, chips and highlighting (TKZ-52, design 2c.6).
+/// The results overlay's sections, chips and highlighting (design 2c.6).
 ///
 /// Everything here drives the controller through its plain methods — the transcript and
 /// changed-file sections are injected as values, so none of it touches a transcript or a repo.

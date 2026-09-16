@@ -1,4 +1,4 @@
-// Exercises the built `tkzmux-hook` binary end-to-end via `Process`. M3.2 (TKZ-22).
+// Exercises the built `tkzmux-hook` binary end-to-end via `Process`. M3.2.
 //
 // Timing acceptance (c) is measured against the debug build here; the release binary is measured
 // separately (see the ticket's Finish step) since `swift test` always runs against the debug
@@ -229,7 +229,7 @@ private func runHook(
         #expect(fullMessage?.hasPrefix(event.lastAssistantMessage ?? "") == true)
     }
 
-    /// TKZ-74: a `Notification` hook's `message` reaches the app, capped at 1 KiB.
+    /// A `Notification` hook's `message` reaches the app, capped at 1 KiB.
     @Test func notificationMessageArrivesCapped() async throws {
         let binary = try hookBinaryURL()
         let dir = try makeSocketDir()

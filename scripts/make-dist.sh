@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cut a release (TKZ-39 / M6.3): signed + notarized build/tkzmux.app -> a zip and a sha256 under
+# Cut a release (M6.3): signed + notarized build/tkzmux.app -> a zip and a sha256 under
 # build/dist -> a GitHub release on the tag HEAD already carries -> optionally a Homebrew cask
 # bump. Driven by `make dist`; see docs/release.md for the manual prerequisites.
 #
@@ -148,7 +148,7 @@ echo "==> gh ${GH_ARGS[*]}"
 gh "${GH_ARGS[@]}"
 
 # ------------------------------------------------------------------------------------ cask bump
-# Owned by another script (TKZ-40); `make dist` only invokes it when the tap checkout is on hand.
+# Owned by another script; `make dist` only invokes it when the tap checkout is on hand.
 if [[ -n "$TAP_DIR" && -x scripts/bump-cask.sh ]]; then
   echo "==> scripts/bump-cask.sh $VERSION $SHA256"
   TAP_DIR="$TAP_DIR" scripts/bump-cask.sh "$VERSION" "$SHA256"

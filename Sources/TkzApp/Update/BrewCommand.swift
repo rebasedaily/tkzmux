@@ -1,4 +1,4 @@
-// BrewCommand — running `brew` from a GUI app without hanging it (TKZ-50).
+// BrewCommand — running `brew` from a GUI app without hanging it.
 //
 // Why not `GitProcess.run`: it reads stdout to EOF *then* stderr, and says so itself — a child
 // that fills the 64 KiB stderr buffer while the reader is blocked on stdout stalls forever. brew

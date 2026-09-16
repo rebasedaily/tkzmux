@@ -32,7 +32,7 @@
 // `ioQueue` is a serial `.userInteractive` queue that the pty layer (M1.2) reads on; ingestion
 // (`write(ptyBytes:)`) is *synchronous* so it can also be driven straight from a test or from
 // `tkzmux-vtdump replay` with no scheduling in between. `renderSignal` is the seam the view layer
-// (M1.6 / TKZ-12) wires a `DispatchSourceUserDataOr` to; this module never touches AppKit.
+// (M1.6) wires a `DispatchSourceUserDataOr` to; this module never touches AppKit.
 import Darwin
 import Foundation
 import Synchronization
@@ -460,7 +460,7 @@ public final class TerminalSession: Sendable {
         state.withLock { $0.onWritePty = sink }
     }
 
-    /// The seam the view layer wires a `DispatchSourceUserDataOr` to in M1.6 (TKZ-12).
+    /// The seam the view layer wires a `DispatchSourceUserDataOr` to in M1.6.
     /// Called outside the lock after every non-empty ingestion.
     public func setRenderSignal(_ signal: (@Sendable () -> Void)?) {
         state.withLock { $0.renderSignal = signal }

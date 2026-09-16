@@ -1,4 +1,4 @@
-// ChangesViewerView.swift — the view-only diff that replaces the terminal (TKZ-58, design 2c.2).
+// ChangesViewerView.swift — the view-only diff that replaces the terminal (design 2c.2).
 //
 //   ┌ Changes  12 files · +142 −38  [vs HEAD ▾]          [Inline|Split]  view only  esc back ┐
 //   ├──────────────┬──────────────────────────────────────────────────────────────────────────┤

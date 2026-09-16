@@ -5,7 +5,7 @@ import TkzCore
 
 @testable import TkzApp
 
-/// The toolbar's "Search sessions…" field and the results overlay it opens (TKZ-52, design 2c.6).
+/// The toolbar's "Search sessions…" field and the results overlay it opens (design 2c.6).
 ///
 /// The bug this covers: `onSearchChanged` used to update the palette's model without ever showing
 /// its panel, so every keystroke went into a table nobody could see. The assertions below are

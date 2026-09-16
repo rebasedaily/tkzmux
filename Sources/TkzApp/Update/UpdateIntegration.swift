@@ -1,4 +1,4 @@
-// UpdateIntegration — the app-side coordinator for the update card (design 2c.1, TKZ-50).
+// UpdateIntegration — the app-side coordinator for the update card (design 2c.1).
 //
 // The same shape as `ClaudeIntegration` and `GitIntegration`: two services that know one thing
 // each — `UpdateChecker` (is there a newer release?) and `UpgradeRunner` (run brew, read the

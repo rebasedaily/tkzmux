@@ -1,4 +1,4 @@
-// Panes and tabs — the tree, its geometry, its wire form and its reducers (TKZ-36).
+// Panes and tabs — the tree, its geometry, its wire form and its reducers.
 
 import CoreGraphics
 import Foundation

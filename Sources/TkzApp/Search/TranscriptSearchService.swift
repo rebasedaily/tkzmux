@@ -1,4 +1,4 @@
-// TranscriptSearchService.swift — the Transcripts section's engine (TKZ-52, design 2c.6).
+// TranscriptSearchService.swift — the Transcripts section's engine (design 2c.6).
 //
 // One `TranscriptIndex` per open session, kept off the main actor. A keystroke asks for hits; the
 // service builds or tops up each index (reading only what the session appended since last time) and

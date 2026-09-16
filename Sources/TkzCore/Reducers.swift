@@ -405,7 +405,7 @@ extension AppState {
         }
     }
 
-    /// One session's mute (TKZ-74): no macOS notifications for it, badge and tint untouched.
+    /// One session's mute: no macOS notifications for it, badge and tint untouched.
     /// `nil` when unmuted, not `false` — the one value a file written before this field existed
     /// can decode to.
     public mutating func setNotificationsMuted(_ id: SessionID, _ muted: Bool) {
@@ -427,7 +427,7 @@ extension AppState {
         themePreset = Theme.toggled(themePreset)
     }
 
-    // MARK: Update card (TKZ-50)
+    // MARK: Update card
 
     /// What the release check found: a newer release, or `nil` when the running build is current
     /// (a withdrawn release clears the card). A failed check calls nothing.

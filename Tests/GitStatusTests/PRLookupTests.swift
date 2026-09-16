@@ -1,5 +1,5 @@
 // PRLookupTests — the GitHub-origin gate, `gh` JSON parsing, and the caching/throttle rules
-// (M4.2 / TKZ-27). Hermetic: never calls the real `gh` or the network — a stub `gh` script and a
+// (M4.2). Hermetic: never calls the real `gh` or the network — a stub `gh` script and a
 // witness file stand in for the real thing.
 
 import Foundation

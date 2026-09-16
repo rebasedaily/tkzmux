@@ -1,4 +1,4 @@
-// ScrollMetrics.swift — the terminal's scroll position, as a pure value (TKZ-45).
+// ScrollMetrics.swift — the terminal's scroll position, as a pure value.
 //
 // libghostty maintains `{total, offset, len}` for exactly this purpose, and `vt/terminal.h` is
 // explicit about how it must be consumed:

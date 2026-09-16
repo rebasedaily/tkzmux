@@ -1,4 +1,4 @@
-// WorktreeList — `git worktree list --porcelain`, parsed (M5.2 / TKZ-30).
+// WorktreeList — `git worktree list --porcelain`, parsed (M5.2).
 //
 // design.md → *Session flows → New worktree*: on session exit the app re-reads the repo's
 // worktree list and drops the `WT` badge from any row whose worktree is gone. `claude -w` offers to

@@ -1,4 +1,4 @@
-// MigrationsTests — schema dispatch and the forward-compatibility guarantee (M5.1 / TKZ-29).
+// MigrationsTests — schema dispatch and the forward-compatibility guarantee (M5.1).
 
 import Foundation
 import Testing

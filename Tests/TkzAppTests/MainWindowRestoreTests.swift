@@ -1,4 +1,4 @@
-// MainWindowRestoreTests — M5.2 (TKZ-30): the window half of launch/restore. Lazy reopen on
+// MainWindowRestoreTests — M5.2: the window half of launch/restore. Lazy reopen on
 // first show, ⌘W confirmation, ⇧⌘W removal, the context menus, "In another repo…", auto-resume.
 //
 // Same doubles as `MainWindowLaunchTests`: a spy host, a plain focusable view, real directories.
@@ -387,7 +387,7 @@ struct MainWindowRestoreTests {
         #expect(controller.statusBar.model.notice?.contains("Taken") == true)
     }
 
-    // MARK: Group colour (TKZ-48)
+    // MARK: Group colour
 
     /// The submenu on a group header row.
     @Test("Group color offers the palette plus None, and writes the colour into the store")
@@ -579,7 +579,7 @@ struct MainWindowRestoreTests {
         #expect(harness.store.state.selection == launched.id)
     }
 
-    /// TKZ-54: File › Open Folder… (⌘O) was in the menu and in the table with no handler, so it was
+    /// File › Open Folder… (⌘O) was in the menu and in the table with no handler, so it was
     /// greyed out forever — while the flow it wanted already existed behind "In another repo…".
     @Test("⌘O is In another repo…: the folder becomes a group and claude starts in it")
     func openFolderChord() throws {
@@ -637,7 +637,7 @@ struct MainWindowRestoreTests {
         #expect(harness.host.opened.count == 2)
         #expect(harness.store.state.selection == ids[0])
 
-        harness.controller.dispatcher.perform(.toggleAutoResume)
+        harness.controller.toggleAutoResume()
         harness.store.flush()
         #expect(harness.store.state.autoResumeOnLaunch == false)
     }

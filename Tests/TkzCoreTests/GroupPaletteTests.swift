@@ -1,4 +1,4 @@
-// GroupPalette — the fixed swatch set the sidebar's "Group color" picker offers (TKZ-48).
+// GroupPalette — the fixed swatch set the sidebar's "Group color" picker offers.
 //
 // The two properties that matter are (1) every swatch is visible against every preset's sidebar,
 // including the near-white one, and (2) a colour survives `state.json` and still matches its

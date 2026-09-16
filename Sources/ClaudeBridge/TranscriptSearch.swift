@@ -1,4 +1,4 @@
-// TranscriptSearch.swift — finding a word inside a Claude conversation (TKZ-52, design 2c.6).
+// TranscriptSearch.swift — finding a word inside a Claude conversation (design 2c.6).
 //
 // The overlay's Transcripts section searches the NDJSON files `TranscriptReader` already knows how
 // to read, but with the opposite shape: that reader wants two fields off the two ends of one file,

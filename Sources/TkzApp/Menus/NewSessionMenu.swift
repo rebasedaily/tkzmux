@@ -1,4 +1,4 @@
-// NewSessionMenu.swift — the “＋ New session…” menu (M2.4 / TKZ-20).
+// NewSessionMenu.swift — the “＋ New session…” menu (M2.4).
 //
 // design.md → App architecture → Toolbar: an `NSMenuToolbarItem` scoped to the selected group with
 // *New worktree (claude -w)*, *In repo root (claude)*, *In another repo…* and an Account submenu;

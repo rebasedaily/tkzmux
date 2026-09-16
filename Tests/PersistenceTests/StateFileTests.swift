@@ -1,4 +1,4 @@
-// StateFileTests — `state.json` v1 (M5.1 / TKZ-29).
+// StateFileTests — `state.json` v1 (M5.1).
 //
 // Everything here writes into a fresh directory under `FileManager.default.temporaryDirectory` and
 // removes it afterwards: nothing may touch `~/Library/Application Support/tkzmux`.
@@ -45,7 +45,7 @@ private func makeState() -> AppState {
     // than coincidentally matching `PersistedPreferences`'s own default.
     state.setShowSessionSpend(false)
     state.setCheckOriginPeriodically(true)
-    // Defaults on (TKZ-74), so off is the value a dropped round trip would fail on.
+    // Defaults on, so off is the value a dropped round trip would fail on.
     state.setNotifyOnDone(false)
     // A muted row rides on `Session` itself; the `sessions ==` assertion below covers it.
     state.setNotificationsMuted(two.id, true)
@@ -100,7 +100,7 @@ private func makeState() -> AppState {
     try StateFile.decode(data).state.apply(to: &restored)
     #expect(restored.notifyOnDone == false)
 
-    // A preferences block written before the switch existed (TKZ-74) has the key missing;
+    // A preferences block written before the switch existed has the key missing;
     // missing must mean *on*, like `showSessionSpend` and unlike the other switches.
     var object = try JSONDecoder().decode([String: JSONValue].self, from: data)
     object["preferences"] = .object(["checkOriginPeriodically": .bool(true)])
@@ -151,7 +151,7 @@ private func makeState() -> AppState {
 }
 
 @Test func dismissedUpdateVersionRoundTripsAndTheRestOfUpdateDoesNot() throws {
-    // TKZ-50: the `✕` on the update card is forever, so the version goes to disk; the fetched
+    // The `✕` on the update card is forever, so the version goes to disk; the fetched
     // release and the upgrade phase are process state and must not.
     try withTemporaryFile { file in
         var original = makeState()
@@ -166,7 +166,7 @@ private func makeState() -> AppState {
         #expect(restored.dismissedUpdateVersion == "0.8.0")
         #expect(restored.update == UpdateState())
 
-        // A preferences block written before TKZ-50 has no key at all: nil, not "".
+        // A preferences block written before the update card has no key at all: nil, not "".
         var object = try JSONDecoder().decode(
             [String: JSONValue].self, from: StateFile.encode(StateDocument(state: PersistedState(original))))
         object["preferences"] = .object(["autoResumeOnLaunch": .bool(true)])
@@ -369,7 +369,7 @@ private struct SeededGenerator: RandomNumberGenerator {
     }
 }
 
-// MARK: - Layout (TKZ-36)
+// MARK: - Layout
 
 /// An old file has no `tabs` key at all. It must still load, and every row must come back with
 /// exactly one pane whose id is the session's own — the property that lets a v1 `<uuid>.ghsnap`

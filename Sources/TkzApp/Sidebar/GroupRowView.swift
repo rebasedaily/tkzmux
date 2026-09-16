@@ -1,4 +1,4 @@
-// GroupRowView — the 28 pt sidebar group header (M2.3 / TKZ-19).
+// GroupRowView — the 28 pt sidebar group header (M2.3).
 //
 //     ┌────────────────────────────────────────────────────┐
 //     ║ ▾  TKZMUX                                       ＋  │   28 pt

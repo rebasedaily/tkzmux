@@ -1,0 +1,206 @@
+// SettingsWindowController.swift — ⌘, (design 7a–d).
+//
+// Owns the one Settings window: a real titled window with traffic lights, 720 × 560, centred over
+// the main window the first time it opens, kept (never released) once built. The store is the only
+// writer: a switch calls a reducer, the change set comes back through the observer, and the row is
+// re-rendered from state — the same loop every other view runs, so a preference flipped anywhere
+// else (View › Toggle Theme, a test) shows here without a special case.
+//
+// Two facts on the pages do not live in the store — which producer feeds each account's status
+// line, and whether the shim is on disk — so `Actions` reads them on every render, and
+// `windowDidBecomeKey` re-renders for the case where they changed while the window was behind.
+//
+// Everything with an alert behind it (`offerStatusline`, `removeStatusline`,
+// `removeShellIntegration`) stays in `MainWindowController`, which already owns the consent flows
+// and their test hooks; this controller only asks for them by account key.
+
+import AppKit
+import ClaudeBridge
+import TkzCore
+
+@MainActor
+final class SettingsWindowController: NSObject, NSWindowDelegate {
+
+    /// What the window needs from the rest of the app, as closures so the tests can stand in.
+    struct Actions {
+        var setShowSessionSpend: (Bool) -> Void = { _ in }
+        var offerStatusline: (String) -> Void = { _ in }
+        var removeStatusline: (String) -> Void = { _ in }
+        var removeShellIntegration: () -> Void = {}
+        var statuslineProducers: () -> [String: StatuslineProducer] = { [:] }
+        var shellIntegrationInstalled: () -> Bool? = { nil }
+        var shellIntegrationDirectory: () -> String? = { nil }
+    }
+
+    var actions = Actions()
+
+    var theme: Theme {
+        didSet { if theme != oldValue { applyTheme() } }
+    }
+
+    /// Between `present` and the window closing, whichever way it closed.
+    private(set) var isShown = false
+    private(set) var page: SettingsPage = .general
+
+    /// How the window comes to the front. Tests replace it: a window ordered front in the test
+    /// process takes key from whatever else is running and, on this machine, has ended a run.
+    var orderFront: (NSWindow) -> Void = { $0.makeKeyAndOrderFront(nil) }
+
+    private let store: AppStore
+    private var storeToken: AppStore.ObserverToken?
+    private var window: SettingsWindow?
+    private var view: SettingsView?
+
+    init(store: AppStore, theme: Theme) {
+        self.store = store
+        self.theme = theme
+        super.init()
+        storeToken = store.addObserver { [weak self] change in
+            guard let self, self.view != nil else { return }
+            // `showSessionSpend` rides `sessions`, the theme its own flag, accounts `usage`,
+            // everything else `chrome` — see the table above `ChangeSet`.
+            if change.chrome || change.theme || change.usage || !change.sessions.isEmpty {
+                self.render()
+            }
+        }
+    }
+
+    // MARK: Presentation
+
+    /// Shows the window, centred over `anchor` (the main window's frame) the first time.
+    func present(over anchor: NSRect?) {
+        let window = makeWindowIfNeeded()
+        render()
+        if !isShown { place(window, over: anchor) }
+        isShown = true
+        orderFront(window)
+    }
+
+    func present(page: SettingsPage, over anchor: NSRect?) {
+        self.page = page
+        present(over: anchor)
+    }
+
+    /// One path out: `close()` on the window, which reports back through `SettingsWindow.onClose`.
+    func close() {
+        guard let window, isShown else { return }
+        window.close()
+    }
+
+    func select(page: SettingsPage) {
+        guard page != self.page else { return }
+        self.page = page
+        render()
+    }
+
+    // MARK: Rendering
+
+    func render() {
+        guard let view else { return }
+        view.render(SettingsModel.make(state: store.state, environment: environment()), page: page)
+    }
+
+    private func environment() -> SettingsModel.Environment {
+        SettingsModel.Environment(
+            statusline: actions.statuslineProducers(),
+            shellInstalled: actions.shellIntegrationInstalled(),
+            shellDirectory: actions.shellIntegrationDirectory())
+    }
+
+    private func toggled(_ id: SettingsRow.ID, _ isOn: Bool) {
+        switch id {
+        case .autoResume: store.update { $0.setAutoResumeOnLaunch(isOn) }
+        case .originCheck: store.update { $0.setCheckOriginPeriodically(isOn) }
+        case .notifyOnDone: store.update { $0.setNotifyOnDone(isOn) }
+        case .sessionSpend: actions.setShowSessionSpend(isOn)
+        default: break
+        }
+    }
+
+    private func pressed(_ id: SettingsRow.ID) {
+        switch id {
+        case .statusline(let accountKey):
+            switch actions.statuslineProducers()[accountKey] ?? .none {
+            case .tkzmux, .stale: actions.removeStatusline(accountKey)
+            case .none, .other: actions.offerStatusline(accountKey)
+            }
+        case .removeShell:
+            actions.removeShellIntegration()
+        default:
+            return
+        }
+        // The consent flows report through notices and the store; the facts outside the store
+        // are re-read here so a synchronous outcome shows at once.
+        render()
+    }
+
+    private func picked(_ id: SettingsRow.ID, _ index: Int) {
+        guard id == .themePreset else { return }
+        let presets = Theme.Preset.allCases
+        guard presets.indices.contains(index) else { return }
+        store.update { $0.setThemePreset(presets[index]) }
+    }
+
+    // MARK: Window
+
+    private func makeWindowIfNeeded() -> SettingsWindow {
+        if let window { return window }
+
+        let view = SettingsView(theme: theme)
+        view.onSelectPage = { [weak self] page in self?.select(page: page) }
+        view.onToggle = { [weak self] id, isOn in self?.toggled(id, isOn) }
+        view.onButton = { [weak self] id in self?.pressed(id) }
+        view.onPopup = { [weak self] id, index in self?.picked(id, index) }
+        self.view = view
+
+        let window = SettingsWindow(
+            contentRect: NSRect(
+                x: 0, y: 0, width: SettingsView.Metrics.width, height: SettingsView.Metrics.height),
+            styleMask: [.titled, .closable, .fullSizeContentView],
+            backing: .buffered,
+            defer: true)
+        window.title = "Settings"
+        window.titleVisibility = .visible
+        window.titlebarAppearsTransparent = true
+        window.isReleasedWhenClosed = false
+        window.isRestorable = false
+        window.isExcludedFromWindowsMenu = true
+        window.identifier = NSUserInterfaceItemIdentifier("tkzmux.settings")
+        window.standardWindowButton(.zoomButton)?.isEnabled = false
+        window.contentView = view
+        window.delegate = self
+        window.onClose = { [weak self] in self?.isShown = false }
+        self.window = window
+        applyTheme()
+        return window
+    }
+
+    private func place(_ window: NSWindow, over anchor: NSRect?) {
+        guard let anchor else {
+            window.center()
+            return
+        }
+        let size = window.frame.size
+        window.setFrameOrigin(NSPoint(
+            x: (anchor.midX - size.width / 2).rounded(),
+            y: (anchor.midY - size.height / 2).rounded()))
+    }
+
+    private func applyTheme() {
+        window?.appearance = NSAppearance(named: theme.isDark ? .darkAqua : .aqua)
+        window?.backgroundColor = theme.windowBackground.nsColor
+        view?.setTheme(theme)
+    }
+
+    // MARK: NSWindowDelegate
+
+    /// Coming back to the window: the status line and shim facts may have moved meanwhile.
+    func windowDidBecomeKey(_ notification: Notification) {
+        render()
+    }
+
+    // MARK: Test access
+
+    var windowForTesting: NSWindow? { window }
+    var viewForTesting: SettingsView? { view }
+}

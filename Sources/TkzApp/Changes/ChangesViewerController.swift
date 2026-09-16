@@ -1,4 +1,4 @@
-// ChangesViewerController.swift — opens, feeds and closes the changes viewer (TKZ-58, design 2c.2).
+// ChangesViewerController.swift — opens, feeds and closes the changes viewer (design 2c.2).
 //
 // The viewer is a view *inside* the window, laid over the terminal container, not a panel like the
 // first-prompt card: the card floats over a terminal that keeps drawing and must not lose the

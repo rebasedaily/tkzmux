@@ -1,4 +1,4 @@
-// UpdateState — what the sidebar's "Update available" card renders (design 2c.1, TKZ-50).
+// UpdateState — what the sidebar's "Update available" card renders (design 2c.1).
 //
 // Process state, not durable state: `PersistedState` deliberately leaves `update` out, the same
 // way it leaves `usage` out — a fetched "latest release" restored from disk would be a stale

@@ -1,4 +1,4 @@
-// DiffParsing — the text half of the changes viewer (TKZ-58, design 2c.2). Pure functions, no
+// DiffParsing — the text half of the changes viewer (design 2c.2). Pure functions, no
 // processes, in the same spirit as `GitStatusParsing`: `GitDiffService` supplies the text, and
 // everything that can go wrong in reading it is a parsing bug tested against literal fixtures.
 //

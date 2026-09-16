@@ -1,4 +1,4 @@
-// UpdateIntegrationTests — the coordinator between the check, the store and the card (TKZ-50).
+// UpdateIntegrationTests — the coordinator between the check, the store and the card.
 //
 // Everything injected: a canned transport, a fake brew, a clock. The wall-clock timer is armed
 // (15 s out) but every test stops the integration long before it fires.

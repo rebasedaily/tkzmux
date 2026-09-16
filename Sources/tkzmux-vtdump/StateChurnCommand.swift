@@ -1,4 +1,4 @@
-// StateChurnCommand — the crash-safety harness for `state.json` (M5.1 / TKZ-29).
+// StateChurnCommand — the crash-safety harness for `state.json` (M5.1).
 //
 //   tkzmux-vtdump state-churn <dir> [--iterations n] [--seed n]
 //

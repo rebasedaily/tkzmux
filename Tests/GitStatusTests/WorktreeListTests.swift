@@ -1,4 +1,4 @@
-// WorktreeListTests — `git worktree list --porcelain` parsing (M5.2 / TKZ-30).
+// WorktreeListTests — `git worktree list --porcelain` parsing (M5.2).
 
 import Foundation
 import Testing

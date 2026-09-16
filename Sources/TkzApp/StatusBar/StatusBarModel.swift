@@ -13,7 +13,7 @@
 //
 // The model carries *already-derived* values only: no dates, no rates, no formatting decisions
 // that depend on the current time, so a given model always renders to the same pixels. M4.2
-// (TKZ-27) fills it from the real services — `GitStatusService`, `PortScanner`, `PRLookup` — and
+// fills it from the real services — `GitStatusService`, `PortScanner`, `PRLookup` — and
 // adds the interactive half: every field that can carry a tooltip carries the *text*, not a date
 // or a rule, for the same reason.
 

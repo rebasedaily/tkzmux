@@ -1,4 +1,4 @@
-// Terminal.metal — the whole tkzmux terminal renderer, three pipelines. M1.5 / TKZ-11.
+// Terminal.metal — the whole tkzmux terminal renderer, three pipelines. M1.5.
 // See docs/design.md → Terminal engine → Metal renderer, and TkzShaderTypes.h for the struct
 // contract (field meanings, units, flag bits, buffer/texture indices).
 //

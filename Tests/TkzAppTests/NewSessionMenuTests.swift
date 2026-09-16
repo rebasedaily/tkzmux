@@ -5,7 +5,7 @@ import TkzCore
 
 @testable import TkzApp
 
-/// The “＋ New session…” menu and the shortcut table (TKZ-20, M2.4).
+/// The “＋ New session…” menu and the shortcut table (M2.4).
 ///
 /// The UX rule the ticket exists for is asserted literally: **every entry names its target** — the
 /// group in the header, the command in a mono hint, the directory, and the reason a disabled entry
@@ -242,7 +242,7 @@ struct NewSessionMenuTests {
         #expect(asked == 1)
     }
 
-    // MARK: - The shell launch (M2.5 / TKZ-43)
+    // MARK: - The shell launch (M2.5)
 
     @Test("A shell launch carries no command and works for a bucket group too")
     func shellLaunchNeedsNoRepo() throws {
@@ -293,7 +293,7 @@ struct ShortcutsTableTests {
         // next/previous still have no cmux default — override-only.
         #expect(ShortcutsTable.defaults[.nextSession] == nil)
         #expect(ShortcutsTable.defaults[.previousSession] == nil)
-        // ⌘T and ⌘D were held for the terminal from M2.4; TKZ-36 is where they were spent.
+        // ⌘T and ⌘D were held for the terminal from M2.4; the pane split is where they were spent.
         #expect(ShortcutsTable.defaults[.newTerminal] == Shortcut("t", .command))
         #expect(ShortcutsTable.defaults[.splitVertically] == Shortcut("d", .command))
         #expect(ShortcutsTable.defaults[.splitHorizontally] == Shortcut("d", [.shift, .command]))
@@ -337,7 +337,7 @@ struct ShortcutsTableTests {
 
     @Test func appStateOverridesWin() throws {
         // The fixture rebinds ⌘N → ⌃⌘N and ⌘B → ⌃⌘S, and adds next/previous. (It used ⌘T and
-        // ⌥⌘↓ until TKZ-36 spent both on the terminal.)
+        // ⌥⌘↓ until the pane split spent both on the terminal.)
         let table = ShortcutsTable.resolved(state: AppState.fixture)
         #expect(table[.newSession] == Shortcut("n", [.control, .command]))
         #expect(table[.toggleSidebar] == Shortcut("s", [.control, .command]))

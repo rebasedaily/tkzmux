@@ -3,7 +3,7 @@ import Testing
 import TkzCore
 @testable import TkzApp
 
-/// Headless tests for the main window toolbar (TKZ-18, M2.2).
+/// Headless tests for the main window toolbar (M2.2).
 ///
 /// The delegate is exercised directly — `toolbar(_:itemForItemIdentifier:willBeInsertedIntoToolbar:)`
 /// — rather than by inserting into a real toolbar, because there is no window in a test process.
@@ -42,11 +42,11 @@ struct MainToolbarTests {
     @Test func titleItemUsesSessionAndGroup() {
         let controller = MainToolbarController(theme: .midnightIndigo)
         _ = Self.item(controller, .tkzTitle)
-        controller.setTitle(session: "TKZ-18", group: "tkzmux")
+        controller.setTitle(session: "feature-x", group: "tkzmux")
 
-        #expect(controller.plainTitle == "TKZ-18 \u{2014} tkzmux")
+        #expect(controller.plainTitle == "feature-x \u{2014} tkzmux")
         let field = controller.titleLabel
-        #expect(field?.attributedStringValue.string == "TKZ-18 \u{2014} tkzmux")
+        #expect(field?.attributedStringValue.string == "feature-x \u{2014} tkzmux")
 
         // The group half is the muted subtitle style; the session half is the title style.
         let attributed = field?.attributedStringValue
@@ -130,7 +130,7 @@ struct MainToolbarTests {
         let item = try #require(Self.item(controller, .tkzViewCluster))
         let control = try #require(item.view as? NSSegmentedControl)
 
-        // TKZ-57 dropped the disabled ◍ browser placeholder; the ☾/☀ theme toggle then took the
+        // The disabled ◍ browser placeholder was dropped; the ☾/☀ theme toggle then took the
         // fourth slot. Four buttons, all live.
         #expect(control.segmentCount == 4)
         #expect(control.segmentCount == MainToolbarController.ViewButton.allCases.count)

@@ -1,4 +1,4 @@
-// The tab strip: pure geometry, and the layers it draws (TKZ-36).
+// The tab strip: pure geometry, and the layers it draws.
 //
 // Modelled on `SidebarRowViewTests`: the layout maths is a pure function, so it is asserted
 // without a view at all, and the view is asserted structurally — layer count, frames, colours —

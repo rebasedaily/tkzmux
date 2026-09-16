@@ -140,13 +140,28 @@ struct RebaseSheetModelTests {
 
 // MARK: - Sheet controller
 
-// Serialized: each test orders a key panel front, and a second panel appearing mid-test makes the
-// first resign key — which is, correctly, a dismissal.
+// Serialized, and **no panel ever reaches the screen**: `orderFront` is stubbed on every
+// controller, like the main-window harness does for its own windows.
+//
+// Until 2026-09-16 the panels were ordered front for real and a `performClick` on one of their
+// buttons ended the whole test run as "passed" mid-way: `NSButtonCell.performClick`
+// spins `nextEventMatchingMask:` to show the pressed state of a *visible* button, that first
+// request for events starts HIToolbox's event-pulling thread, and from then on every incoming
+// event wakes the main thread with `CFRunLoopStop(main)`. Harmless under `NSApplication.run`,
+// but the test process's main run loop is `CFRunLoopRun()` inside Swift's async-main drain, which
+// calls `exit(0)` the moment that loop stops — no summary line, and every test scheduled after
+// that point silently never runs. Off screen there is nothing to spin, and `click` below sends
+// the action directly anyway.
 @MainActor
 @Suite(.serialized) struct RebaseSheetControllerTests {
 
     static func request() -> GitRebase.Request {
         GitRebase.Request(toplevel: "/tmp/x", gitDir: "/tmp/x/.git", base: BaseBranch(remote: "origin", name: "main"))
+    }
+
+    /// The button's action, without the event-loop spin `performClick` does for a visible window.
+    static func click(_ button: NSButton) {
+        _ = NSApp.sendAction(button.action!, to: button.target, from: button)
     }
 
     static func settle(_ predicate: () -> Bool) async {
@@ -161,6 +176,7 @@ struct RebaseSheetModelTests {
         _ = NSApplication.shared
         let controller = RebaseSheetController(theme: .default) { _ in (nil, 7) }
         controller.dismissesWhenResigningKey = false
+        controller.orderFront = { _ in }
         let fetched = FlagBox()
         controller.onFetched = { _ in fetched.hit = true }
         let id = SessionID.generate()
@@ -188,6 +204,7 @@ struct RebaseSheetModelTests {
         _ = NSApplication.shared
         let controller = RebaseSheetController(theme: .default) { _ in (nil, 2) }
         controller.dismissesWhenResigningKey = false
+        controller.orderFront = { _ in }
         let fetched = FlagBox()
         controller.onFetched = { _ in fetched.hit = true }
         var request = Self.request()
@@ -203,6 +220,7 @@ struct RebaseSheetModelTests {
         _ = NSApplication.shared
         let controller = RebaseSheetController(theme: .default) { _ in (.fetchFailed("no route to host"), nil) }
         controller.dismissesWhenResigningKey = false
+        controller.orderFront = { _ in }
         controller.present(for: SessionID.generate(), request: Self.request(), model: RebaseSheetModel(baseRef: "origin/main"), over: nil)
         await Self.settle { controller.model?.phase != .fetching }
         #expect(controller.model?.phase == .fetchFailed("no route to host"))
@@ -216,6 +234,7 @@ struct RebaseSheetModelTests {
         _ = NSApplication.shared
         let controller = RebaseSheetController(theme: .default) { _ in (nil, 3) }
         controller.dismissesWhenResigningKey = false
+        controller.orderFront = { _ in }
         let started = FlagBox()
         let dismissed = FlagBox()
         controller.onRebase = { _ in started.hit = true }
@@ -225,7 +244,7 @@ struct RebaseSheetModelTests {
         await Self.settle { controller.model?.phase == .ready }
         let view = try #require(controller.sheetViewForTesting)
 
-        view.rebaseButtonForTesting.performClick(nil)
+        Self.click(view.rebaseButtonForTesting)
         #expect(started.hit)
         controller.rebaseStarted(for: id)
         #expect(controller.model?.phase == .rebasing)
@@ -243,11 +262,12 @@ struct RebaseSheetModelTests {
         _ = NSApplication.shared
         let controller = RebaseSheetController(theme: .default) { _ in (nil, 1) }
         controller.dismissesWhenResigningKey = false
+        controller.orderFront = { _ in }
         let id = SessionID.generate()
         controller.present(for: id, request: nil, model: RebaseSheetModel(baseRef: "main", behind: 1, phase: .ready), over: nil)
         let view = try #require(controller.sheetViewForTesting)
         #expect(view.bodyForTesting == "Pulls in 1 commit")
-        view.cancelButtonForTesting.performClick(nil)
+        Self.click(view.cancelButtonForTesting)
         #expect(!controller.isShown)
 
         controller.present(for: id, request: nil, model: RebaseSheetModel(baseRef: "main", behind: 1, phase: .ready), over: nil)
@@ -379,8 +399,7 @@ struct RebaseWindowTests {
         defer { harness.tearDown() }
         let dispatcher = harness.controller.dispatcher
         #expect(dispatcher.canPerform(.rebaseOntoBase))
-        #expect(dispatcher.canPerform(.toggleOriginCheck))
-        #expect(dispatcher.checkmark(for: .toggleOriginCheck) == false)
+        #expect(harness.store.state.checkOriginPeriodically == false)
 
         let id = harness.store.state.selection!
         harness.mutate { $0.setLive(LiveSessionState(shellPid: 1, status: .idle), for: id) }
@@ -405,9 +424,9 @@ struct RebaseWindowTests {
         harness.controller.toggleRebaseSheet()
         #expect(!harness.controller.rebaseSheet.isShown)
 
-        dispatcher.perform(.toggleOriginCheck)
+        // The origin check is a Settings switch now; its controller setter still flips it.
+        harness.controller.toggleOriginCheck()
         harness.store.flush()
         #expect(harness.store.state.checkOriginPeriodically)
-        #expect(dispatcher.checkmark(for: .toggleOriginCheck) == true)
     }
 }

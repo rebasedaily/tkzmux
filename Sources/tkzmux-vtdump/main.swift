@@ -596,7 +596,7 @@ let argv = Array(CommandLine.arguments.dropFirst())
 do {
     switch argv.first {
     case "bench":
-        // M1.10 / TKZ-16 — spawns real pty sessions and measures RSS, phys_footprint, threads,
+        // M1.10 — spawns real pty sessions and measures RSS, phys_footprint, threads,
         // CPU, compression and snapshot cost. See docs/perf.md.
         try BenchCommands.run(Array(argv.dropFirst()))
 
@@ -625,7 +625,7 @@ do {
         print(line)
 
     case "state-churn":
-        // M5.1 / TKZ-29 — the SIGKILL harness for state.json; see scripts/state-crash-test.sh.
+        // M5.1 — the SIGKILL harness for state.json; see scripts/state-crash-test.sh.
         try StateChurnCommand.run(Array(argv.dropFirst()))
 
     case "replay":

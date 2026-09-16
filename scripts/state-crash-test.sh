@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The M5.1 / TKZ-29 crash acceptance: "a loop that mutates and sends SIGKILL at random points 50
+# The M5.1 crash acceptance: "a loop that mutates and sends SIGKILL at random points 50
 # times never produces an unparsable state.json (the file is either the old or the new complete
 # version)". See docs/design.md → *Session flows & persistence* and docs/manual-checks.md.
 #

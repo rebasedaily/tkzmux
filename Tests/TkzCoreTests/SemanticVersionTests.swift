@@ -1,4 +1,4 @@
-// SemanticVersionTests — the ordering behind the sidebar's update card (TKZ-50).
+// SemanticVersionTests — the ordering behind the sidebar's update card.
 //
 // The interesting rows are the ones `scripts/make-app.sh` can produce (`1.2.3-dev.4+abc1234`)
 // against the tags GitHub reports (`v1.2.3`): a dev build must sort *below* the tag it was built

@@ -1,5 +1,5 @@
 // The parsed form of one NDJSON frame received by `HookServer`. See docs/design.md → Claude
-// integration → tkzmux-hook, and the wire protocol in the M3.2 (TKZ-22) ticket.
+// integration → tkzmux-hook, and the wire protocol in the M3.2 ticket.
 import Darwin
 import TkzCore
 

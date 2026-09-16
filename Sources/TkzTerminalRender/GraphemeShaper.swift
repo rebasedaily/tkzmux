@@ -1,4 +1,4 @@
-// GraphemeShaper — grapheme cluster → glyphs (M1.4 / TKZ-10).
+// GraphemeShaper — grapheme cluster → glyphs (M1.4).
 // See docs/design.md → Terminal engine → Metal renderer.
 //
 // A terminal shapes *per cell*, never across cells, so there are no ligatures in v1: `fi`, `->` and

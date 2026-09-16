@@ -201,7 +201,7 @@ private func makeService(_ recorder: TKZ26Recorder) -> GitStatusService {
         #expect(recorder.lastSummary?.branch == "main")
     }
 
-    /// TKZ-26's last bullet: `updatedAt` moves on every refresh, so a naive `!=` would re-render the
+    /// M4.1's last bullet: `updatedAt` moves on every refresh, so a naive `!=` would re-render the
     /// row forever. Three refreshes over an unchanged repo, exactly one callback.
     @Test func identicalRefreshesPostExactlyOnce() {
         let fixture = TKZ26Fixture()

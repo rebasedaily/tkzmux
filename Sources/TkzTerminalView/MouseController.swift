@@ -1,5 +1,5 @@
 // MouseController — the AppKit half of mouse reporting, selection, clipboard, scrolling and OSC 8
-// links (M1.8 / TKZ-14). See docs/design.md → Terminal engine → *View & input* → Mouse.
+// links (M1.8). See docs/design.md → Terminal engine → *View & input* → Mouse.
 //
 // Everything that needs a decision lives here; everything that needs libghostty lives behind
 // `MouseControllerTerminal`. That split is deliberate:
@@ -485,7 +485,7 @@ public final class MouseController: NSObject, TerminalMouseHandling {
     private func mouseMovedInside(_ event: NSEvent, in view: TerminalMetalView) -> Bool {
         guard let terminal = terminalForView(view) else { return false }
         // The tracking area delivers hovers by geometry alone: a view drawn *over* the terminal
-        // (the changes viewer, TKZ-58) does not stop them. A hover the pointer cannot actually
+        // (the changes viewer) does not stop them. A hover the pointer cannot actually
         // reach must not be reported — under any-event tracking (1003) every one of them would
         // go down the pty as a motion report while the user is looking at something else.
         guard view.isPointerTarget(event) else {

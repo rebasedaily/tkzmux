@@ -3,11 +3,11 @@
 // design.md → App architecture → Toolbar:
 //   title “<session> — <group>”; `NSMenuToolbarItem` “＋ New session…” scoped to the selected group;
 //   “Search sessions…” (⌘F, printed in the field); the three right-hand buttons (`>_` new terminal, `◫`/`⬓` splits).
-//   The design's fourth button, `◍` browser, was dropped in TKZ-57 rather than shipped disabled.
+//   The design's fourth button, `◍` browser, was dropped rather than shipped disabled.
 //
 // This wave builds the chrome only. The controller owns no application state and holds no
 // reference to a window controller or store: every action is a closure the assembler assigns, and
-// the “＋ New session…” menu is a stub that M2.4 (TKZ-20) replaces via ``newSessionMenu``.
+// the “＋ New session…” menu is a stub that M2.4 replaces via ``newSessionMenu``.
 
 import AppKit
 import TkzCore
@@ -53,7 +53,7 @@ public final class MainToolbarController: NSObject, NSToolbarDelegate {
         func label(isDark: Bool) -> String {
             switch self {
             // Deliberately "session": this button makes a whole new row running a bare shell, not
-            // another terminal inside this one. ⌘T is the latter (TKZ-36), and the two would
+            // another terminal inside this one. ⌘T is the latter, and the two would
             // otherwise read as the same verb.
             case .terminal: "New shell session"
             case .splitV: "Split vertically"
@@ -64,7 +64,7 @@ public final class MainToolbarController: NSObject, NSToolbarDelegate {
     }
 
     /// Point size of the cluster glyphs. Toolbar chrome, not a theme token: the sidebar's 10 pt
-    /// `detail` size read too small for `◫`/`⬓` in the 48 pt bar (TKZ-57).
+    /// `detail` size read too small for `◫`/`⬓` in the 48 pt bar.
     static let clusterGlyphSize: Double = 12
 
     public let toolbar: NSToolbar
@@ -145,7 +145,7 @@ public final class MainToolbarController: NSObject, NSToolbarDelegate {
         titleField?.toolTip = plainTitle
     }
 
-    /// The unstyled centred title, e.g. `"TKZ-18 — tkzmux"`.
+    /// The unstyled centred title, e.g. `"feature-x — tkzmux"`.
     public var plainTitle: String {
         guard let groupTitle, !groupTitle.isEmpty else { return sessionTitle }
         return "\(sessionTitle) \u{2014} \(groupTitle)"   // em dash
@@ -166,7 +166,7 @@ public final class MainToolbarController: NSObject, NSToolbarDelegate {
         return out
     }
 
-    /// The stub menu for this wave. M2.4 (TKZ-20) replaces it with the real, group-scoped menu
+    /// The stub menu for this wave. M2.4 replaces it with the real, group-scoped menu
     /// (*New worktree (claude -w)*, *In repo root (claude)*, *In another repo…*, Account
     /// submenu).
     public static func stubNewSessionMenu() -> NSMenu {

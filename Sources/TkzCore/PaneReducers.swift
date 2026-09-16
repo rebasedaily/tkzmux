@@ -1,4 +1,4 @@
-// Pane and tab transitions (TKZ-36) — the `mutating` half of the split tree.
+// Pane and tab transitions — the `mutating` half of the split tree.
 //
 // Same contract as `Reducers.swift`: pure functions of `AppState`, no pty, no git, no Claude. A
 // reducer that cannot do what it was asked (unknown id, an invariant it must not break) is a

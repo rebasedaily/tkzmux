@@ -1,5 +1,5 @@
 // PaletteDataSource.swift — turns an `AppState` into searchable palette items and ranks them
-// (M2.4 / TKZ-20).
+// (M2.4).
 //
 // Build one when the state changes, then call ``search(_:)`` per keystroke: every candidate string
 // is folded once at construction (`FuzzyMatch.Target`), which is what keeps a keystroke over the
@@ -53,7 +53,7 @@ public struct PaletteDataSource: Sendable {
 
     /// - Parameter commands: the actions that may appear as command rows — the dispatcher's
     ///   ``MenuDispatcher/performableActions``. A command the palette lists must run when it is
-    ///   chosen; before TKZ-53 four handlerless actions were rows that closed the panel and did
+    ///   chosen; before the handler filter four handlerless actions were rows that closed the panel and did
     ///   nothing. A `Set` rather than the dispatcher itself because this type is `Sendable` and
     ///   `MenuDispatcher` is `@MainActor`.
     public init(

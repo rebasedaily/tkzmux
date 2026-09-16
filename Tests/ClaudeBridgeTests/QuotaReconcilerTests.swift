@@ -1,4 +1,4 @@
-// QuotaReconcilerTests — the scenarios that shaped the algorithm (TKZ-32).
+// QuotaReconcilerTests — the scenarios that shaped the algorithm.
 //
 // The rules were learned the hard way in a personal dashboard whose implementation had **no tests
 // at all** — they existed only as prose in its notes. These are the first tests this algorithm has

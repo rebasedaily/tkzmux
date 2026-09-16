@@ -1,4 +1,4 @@
-// TerminalMetalView — the NSView that a terminal session is drawn into (M1.6 / TKZ-12).
+// TerminalMetalView — the NSView that a terminal session is drawn into (M1.6).
 // See docs/design.md → Terminal engine → *View & input*.
 //
 // Responsibilities, and nothing else:
@@ -10,13 +10,13 @@
 //   * rebuild the world when the backing scale changes,
 //   * forward input events to an `inputDelegate` — it encodes nothing itself.
 //
-// ## Keyboard and mouse are deliberately *not* here (TKZ-13 / TKZ-14)
+// ## Keyboard and mouse are deliberately *not* here
 //
 // Every responder method below does exactly one thing: hand the `NSEvent` to `inputDelegate` and
 // fall back to `super` when the delegate did not consume it. The encoders those delegates call
 // (`KeyEncoder`, `MouseEncoder`, `SelectionController`) all live in `TkzTerminalCore`, so the whole
 // input path unit-tests without AppKit. `NSTextInputClient` conformance is *not* declared here on
-// purpose: TKZ-13 adds it in an extension in its own file.
+// purpose: `TerminalMetalView+TextInput` adds it in an extension in its own file.
 
 import AppKit
 import Foundation
@@ -30,7 +30,7 @@ import os
 
 // MARK: - Input seam
 
-/// The seam TKZ-13 (keyboard/IME) and TKZ-14 (mouse/selection) plug into.
+/// The seam the keyboard/IME and mouse/selection controllers plug into.
 ///
 /// One method for every event, because the encoders need the raw `NSEvent` (modifier side bits,
 /// `characters(byApplyingModifiers:)`, real pointer pixels). Returning `true` means "consumed"; the
@@ -40,7 +40,7 @@ public protocol TerminalViewInputDelegate: AnyObject {
     /// A key, modifier, mouse or scroll event arrived. Return `true` if it was handled.
     func terminalView(_ view: TerminalMetalView, handle event: NSEvent) -> Bool
     /// Focus changed. This is the DEC 1004 (focus reporting) hook: Claude Code sets mode 1004, so
-    /// TKZ-13 answers this with `ghostty_focus_encode` when the mode is on.
+    /// `TerminalInputController` answers this with `ghostty_focus_encode` when the mode is on.
     func terminalView(_ view: TerminalMetalView, didChangeFocus isFocused: Bool)
 }
 
@@ -101,7 +101,7 @@ public final class TerminalMetalView: NSView {
     private var cachedThumbColor: CGColor?
     private var cachedThumbColorTheme: Theme?
 
-    /// TKZ-13 / TKZ-14 install themselves here. Weak: the controller owns them.
+    /// The input and mouse controllers install themselves here. Weak: the controller owns them.
     public weak var inputDelegate: TerminalViewInputDelegate?
 
     /// Called after the grid size changed, so the owner can push it to the pty
@@ -273,7 +273,7 @@ public final class TerminalMetalView: NSView {
     public var cellMetrics: CellMetrics { renderContext.metrics }
 
     /// Where the grid sits inside the drawable, in device pixels (top-left origin, no padding).
-    /// TKZ-14 uses this to turn pointer pixels into cells — it must pass *real* pointer pixels, so
+    /// `MouseController` uses this to turn pointer pixels into cells — it must pass *real* pointer pixels, so
     /// the view deliberately exposes geometry rather than a cell lookup.
     public var gridGeometry: GridGeometry {
         let size = drawablePixelSize()
@@ -706,7 +706,7 @@ public final class TerminalMetalView: NSView {
         blinkTimer = nil
     }
 
-    /// Shows the cursor and restarts the blink phase. TKZ-13 calls this on every keypress so the
+    /// Shows the cursor and restarts the blink phase. `TerminalInputController` calls this on every keypress so the
     /// cursor is solid while typing.
     public func resetCursorBlink() {
         surface.cursorBlinkOn = true
@@ -740,7 +740,7 @@ public final class TerminalMetalView: NSView {
         frameDriver.requestFrame()
     }
 
-    // MARK: - Input forwarding (TKZ-13 / TKZ-14 supply the delegate)
+    // MARK: - Input forwarding (supply the delegate)
 
     private func forward(_ event: NSEvent) -> Bool {
         inputDelegate?.terminalView(self, handle: event) ?? false
@@ -808,7 +808,7 @@ public final class TerminalMetalView: NSView {
         if !forward(event) { super.scrollWheel(with: event) }
     }
 
-    /// TKZ-14 sets this to `true` while a selection drag is running so the link keeps ticking for
+    /// `MouseController` sets this to `true` while a selection drag is running so the link keeps ticking for
     /// autoscroll even when the terminal itself is idle.
     public var isDragging: Bool {
         get { frameDriver.demand.isDragging }

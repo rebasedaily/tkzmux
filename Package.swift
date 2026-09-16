@@ -21,7 +21,7 @@ let package = Package(
         .library(name: "TkzApp", targets: ["TkzApp"]),
     ],
     targets: [
-        // MARK: Vendored libghostty-vt (M1.1 / TKZ-7).
+        // MARK: Vendored libghostty-vt (M1.1).
         // Built by `make vendor` (scripts/build-ghostty-vt.sh) at the commit in vendor/ghostty-vt/COMMIT;
         // arm64-only static archive, module `GhosttyVt` (umbrella ghostty/vt.h).
         .binaryTarget(
@@ -121,7 +121,7 @@ let package = Package(
         .testTarget(name: "TkzTerminalViewTests", dependencies: ["TkzTerminalView", "TkzTerminalCore", "GhosttyVt"], path: "Tests/TkzTerminalViewTests"),
         .testTarget(name: "TkzCoreTests", dependencies: ["TkzCore"], path: "Tests/TkzCoreTests"),
         // TkzTerminalCore + GhosttyVt for the shell-integration harness, which spawns each login
-        // shell on a real `Pty` (TKZ-33), like PersistenceTests does for snapshots.
+        // shell on a real `Pty`, like PersistenceTests does for snapshots.
         .testTarget(name: "ClaudeBridgeTests", dependencies: ["ClaudeBridge", "TkzTerminalCore", "GhosttyVt"], path: "Tests/ClaudeBridgeTests", resources: [.copy("Fixtures")]),
         .testTarget(name: "GitStatusTests", dependencies: ["GitStatus"], path: "Tests/GitStatusTests"),
         .testTarget(name: "PersistenceTests", dependencies: ["Persistence", "TkzTerminalCore", "GhosttyVt"], path: "Tests/PersistenceTests"),

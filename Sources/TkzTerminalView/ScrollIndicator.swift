@@ -1,4 +1,4 @@
-// ScrollIndicator — the overlay scrollbar thumb over the Metal surface (M2.5 / TKZ-45).
+// ScrollIndicator — the overlay scrollbar thumb over the Metal surface (M2.5).
 //
 // ## Why there is one at all
 //

@@ -1,4 +1,4 @@
-// SemanticVersion — the ordering behind "is there a newer release than the one running?" (TKZ-50).
+// SemanticVersion — the ordering behind "is there a newer release than the one running?".
 //
 // `AppVersion.isReleaseVersion` answers *what kind* of build this is; nothing answered *which is
 // newer* until the sidebar's update card needed to compare a GitHub tag (`v0.8.0`) against

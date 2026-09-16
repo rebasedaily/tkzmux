@@ -1,4 +1,4 @@
-// UpgradeRunner — `brew update` then `brew upgrade --cask tkz0/tap/tkzmux`, in-app (TKZ-50).
+// UpgradeRunner — `brew update` then `brew upgrade --cask tkz0/tap/tkzmux`, in-app.
 //
 // Started only by a click on the card; the release poller never spawns brew. Two steps, one serial
 // queue, each line appended to `~/Library/Logs/tkzmux/update.log`, then the plist on disk decides
