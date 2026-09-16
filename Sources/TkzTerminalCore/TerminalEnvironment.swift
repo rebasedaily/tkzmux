@@ -67,8 +67,11 @@ public enum TerminalEnvironment {
     ///   - sessionID: tkzmux's own session id (`TKZMUX_SESSION_ID`).
     ///   - accountConfigDir: `CLAUDE_CONFIG_DIR` for a *non-primary* Claude account; nil for the
     ///     primary account, where Claude Code's own default (`~/.claude`) must win.
-    ///   - tkzmuxDir: tkzmux's application-support directory; `zsh/`, `bin/` and `tkzmux.sock`
-    ///     inside it are handed to the shell.
+    ///   - tkzmuxDir: tkzmux's application-support directory; `zsh/`, `bin/` and this instance's
+    ///     hook socket inside it are handed to the shell.
+    ///   - instancePID: the running app's pid, which names the hook socket (`HookSocket`): every
+    ///     instance listens on its own, so a pane's frames come back to the instance that spawned
+    ///     it and never to another tkzmux sharing the directory.
     ///   - baseEnvironment: what to inherit. Injectable so tests never depend on the real process env.
     ///   - home: the user's home directory (`TKZMUX_USER_ZDOTDIR`). Defaults to `HOME` from
     ///     `baseEnvironment`, then to `NSHomeDirectory()`.
@@ -88,7 +91,8 @@ public enum TerminalEnvironment {
         baseEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         home: String? = nil,
         terminfoDirectory: URL? = TerminalEnvironment.bundledTerminfoDirectory,
-        shell: LoginShell? = nil
+        shell: LoginShell? = nil,
+        instancePID: pid_t = getpid()
     ) -> [String: String] {
         let shell = shell ?? LoginShell.detect(environment: baseEnvironment)
         var env = baseEnvironment
@@ -125,7 +129,7 @@ public enum TerminalEnvironment {
             env["PATH"] = ([bin] + rest).joined(separator: ":")
         }
         env["TKZMUX_BIN"] = bin
-        env["TKZMUX_SOCKET"] = tkzmuxDir.appending(path: "tkzmux.sock", directoryHint: .notDirectory).path
+        env["TKZMUX_SOCKET"] = HookSocket.url(in: tkzmuxDir, pid: instancePID).path
         env["TKZMUX_SESSION_ID"] = sessionID
 
         // Only non-primary accounts get an explicit config dir; the primary account uses ~/.claude.
@@ -153,7 +157,8 @@ public enum TerminalEnvironment {
         home: String? = nil,
         terminfoDirectory: URL? = TerminalEnvironment.bundledTerminfoDirectory,
         shell: LoginShell? = nil,
-        wrapperPresent: Bool? = nil
+        wrapperPresent: Bool? = nil,
+        instancePID: pid_t = getpid()
     ) -> PtySpawn {
         let shell = shell ?? LoginShell.detect(environment: baseEnvironment)
         let wrapperPresent = wrapperPresent ?? shell.entryWrapper(in: tkzmuxDir).map {
@@ -169,7 +174,8 @@ public enum TerminalEnvironment {
                 baseEnvironment: baseEnvironment,
                 home: home,
                 terminfoDirectory: terminfoDirectory,
-                shell: shell
+                shell: shell,
+                instancePID: instancePID
             ),
             cwd: cwd,
             size: size

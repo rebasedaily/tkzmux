@@ -107,16 +107,32 @@ public final class ClaudeIntegration {
     /// a few seconds of the rule without waking the process for nothing.
     public static let tickInterval: TimeInterval = 5
 
+    /// This instance's pid: names its hook socket and anchors the ownership walk.
+    public let instancePID: pid_t
+    /// Parent/name lookups for `ownsProcess(_:)` and the pid walks. Injected so the joins can be
+    /// driven with a fake process tree.
+    let ancestry: any ProcessAncestry
+    /// This executable's short name, the marker the ownership walk uses to recognise *another*
+    /// tkzmux in a pid's ancestry (a dev build started from a pane). `swift run tkzmux` and the
+    /// app bundle both report `tkzmux`; a binary built under some other name would not be
+    /// recognised, and only that one topology would cross-claim again.
+    let executableName: String
+
     public init(
         store: AppStore,
         directory: URL,
         home: String = NSHomeDirectory(),
-        installer: ShimInstaller? = nil
+        installer: ShimInstaller? = nil,
+        instancePID: pid_t = getpid(),
+        ancestry: any ProcessAncestry = SystemProcessAncestry()
     ) {
         self.store = store
         self.directory = directory
         self.home = home
         self.installer = installer
+        self.instancePID = instancePID
+        self.ancestry = ancestry
+        self.executableName = ancestry.name(of: instancePID) ?? ""
 
         // Accounts are discovered, never hard-coded: `~/.claude` plus every `~/.claude-*` that
         // looks like a config dir, plus whatever the store already knows, plus the account of every
@@ -141,8 +157,11 @@ public final class ClaudeIntegration {
         // Each closure only hops to the main queue; the real work is in the `handle…` methods so
         // that tests can call them directly with synthetic frames.
         let box = WeakBox()
+        // One socket per running instance (`HookSocket`): the same name `TerminalEnvironment`
+        // exports as `TKZMUX_SOCKET` for this pid, so a pane's frames reach the instance that
+        // spawned it and a second tkzmux no longer fails to bind.
         hookServer = HookServer(
-            socketPath: directory.appending(path: "tkzmux.sock", directoryHint: .notDirectory)
+            socketPath: HookSocket.url(in: directory, pid: instancePID)
         ) { frame in
             DispatchQueue.main.async { MainActor.assumeIsolated { box.value?.handle(frame) } }
         }
@@ -276,10 +295,15 @@ public final class ClaudeIntegration {
                 logger.error("shell integration install failed: \(String(describing: error), privacy: .public)")
             }
         }
+        // Sockets of instances that crashed or were killed are named after pids nobody reuses
+        // on purpose; sweep them before adding ours. A live sibling survives its probe.
+        HookServer.sweepStaleInstanceSockets(in: directory, except: hookServer.socketPath)
         do {
             try hookServer.start()
         } catch {
-            logger.error("hook server failed to start: \(String(describing: error), privacy: .public)")
+            logger.error(
+                "hook server failed to start at \(self.hookServer.socketPath.path, privacy: .public): \(String(describing: error), privacy: .public)"
+            )
         }
         watcher.start()
         statusline.start()
@@ -528,10 +552,17 @@ public final class ClaudeIntegration {
         for _ in 0..<8 {
             guard current > 1 else { return nil }
             if let match = live.panePids.first(where: { $0.value == current }) { return match.key }
-            guard let parent = ProcessTree.parent(of: current), parent != current else { return nil }
+            guard let parent = ancestry.parent(of: current), parent != current else { return nil }
             current = parent
         }
         return nil
+    }
+
+    /// Whether `pid` runs under this instance — its ancestry reaches our pid before launchd and
+    /// without crossing another tkzmux (`ProcessOwnership`). Gates the descriptor joins that
+    /// cannot tell instances apart on their own.
+    func ownsProcess(_ pid: pid_t) -> Bool {
+        ProcessOwnership.owns(pid, selfPid: instancePID, selfName: executableName, ancestry: ancestry)
     }
 
     /// `sid` → `payload.session_id` → the `ppid` tree, per design.md → *tkzmux-hook*.
@@ -550,12 +581,17 @@ public final class ClaudeIntegration {
     }
 
     /// Walks up from `pid` (inclusive) looking for a pid the store knows: a bound `claude` pid or
-    /// a session's shell pid. Depth-limited; stops at launchd.
+    /// a session's shell pid. Depth-limited; stops at launchd, and at another tkzmux — a dev
+    /// build running in one of our panes has our pane's shell above it, and everything under it
+    /// belongs to that build, not to the row hosting it.
     func sessionID(forProcess pid: pid_t) -> SessionID? {
         let sessions = store.state.sessions.values
         var current = pid
         for _ in 0..<8 {
             guard current > 1 else { return nil }
+            if current != instancePID, !executableName.isEmpty, ancestry.name(of: current) == executableName {
+                return nil
+            }
             if let id = pidToSession[current], store.state.sessions[id]?.live != nil { return id }
             // `panePids` is what makes this work for a `claude` started in a split pane: without
             // it the walk climbs to that pane's shell, which no row's `shellPid` names, and falls
@@ -567,7 +603,7 @@ public final class ClaudeIntegration {
             }) {
                 return match.id
             }
-            guard let parent = ProcessTree.parent(of: current), parent != current else { return nil }
+            guard let parent = ancestry.parent(of: current), parent != current else { return nil }
             current = parent
         }
         return nil
@@ -603,16 +639,23 @@ public final class ClaudeIntegration {
 
     /// `launch` binding → a row already carrying this pid → a row whose `claudeSessionId` matches
     /// (a resumed conversation) → the process tree up to a session's shell.
+    ///
+    /// The first two joins are instance-local by construction (the pid came over *our* socket,
+    /// or we bound it before). The last two are not: descriptors are global, two instances
+    /// restore the same conversation ids from one `state.json`, and a dev build in a pane is
+    /// itself under one of our shells — so both are gated on `ownsProcess`, and a Claude that is
+    /// not ours is filed as external like any Terminal.app one.
     func sessionID(forDescriptor info: ClaudeSessionInfo) -> SessionID? {
         let state = store.state
         if let id = pidToSession[info.pid], state.sessions[id]?.live != nil { return id }
         if let match = state.sessions.values.first(where: { $0.live?.pid == info.pid }) { return match.id }
+        guard ownsProcess(info.pid) else { return nil }
         if let match = state.sessions.values.first(where: {
             $0.claudeSessionId == info.sessionId && $0.live != nil && $0.live?.descriptor == nil
         }) {
             return match.id
         }
-        if let parent = ProcessTree.parent(of: info.pid) { return sessionID(forProcess: parent) }
+        if let parent = ancestry.parent(of: info.pid) { return sessionID(forProcess: parent) }
         return nil
     }
 

@@ -107,6 +107,11 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
                     controller.claude = integration
                     integration.start()
                     claude = integration
+                    // A dead hook server used to be a log line only, and an app with no hooks
+                    // looks exactly like one whose Claude never does anything. Say so.
+                    if !integration.hookServer.isRunning {
+                        controller.showNotice("Claude hooks unavailable: the hook socket could not be opened")
+                    }
                 }
                 // M4: git status, PR lookup and port scanning for the rows the window shows.
                 // After `claude`, so the Stop hook it installs reaches a coordinator that exists.

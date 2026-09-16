@@ -114,7 +114,8 @@ config dir — is read, never written:
   (`Sources/TkzCore/ModelPricing.swift`) each time the status bar reads it, so an edit to that table
   is retroactive. This file is a recomputable cache, not a record: deleting it just costs one re-read
   of the transcript, the same as `statusline/*` and unlike `state.json`.
-- `tkzmux.sock` — the local hook socket.
+- `tkzmux-<pid>.sock` — the local hook socket, one per running tkzmux (named after its pid so two
+  instances never share one). Removed on quit; one left by a crash is swept at the next launch.
 
 **Shell integration and hooks.** Terminals tkzmux opens run your login shell (`$SHELL`, else the
 account database) with a wrapper that runs *after* your own startup files and puts tkzmux's `bin/`

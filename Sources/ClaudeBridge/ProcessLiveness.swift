@@ -98,6 +98,18 @@ public enum ProcessTree {
         return Date(timeIntervalSince1970: TimeInterval(info.pbi_start_tvsec))
     }
 
+    /// The process's short name (`p_comm`, the executable's file name capped at `MAXCOMLEN`)
+    /// via `proc_name`, or `nil` when the pid is gone or not readable. Used on both sides of the
+    /// comparison in `ProcessOwnership`, so the cap cannot make two names disagree.
+    public static func name(of pid: pid_t) -> String? {
+        var buffer = [UInt8](repeating: 0, count: Int(2 * MAXCOMLEN) + 1)
+        let written = buffer.withUnsafeMutableBytes { raw in
+            proc_name(pid, raw.baseAddress, UInt32(raw.count))
+        }
+        guard written > 0 else { return nil }
+        return String(decoding: buffer.prefix(while: { $0 != 0 }), as: UTF8.self)
+    }
+
     /// The parent pid via `PROC_PIDTBSDINFO.pbi_ppid`, or `nil` if unavailable.
     public static func parent(of pid: pid_t) -> pid_t? {
         var info = proc_bsdinfo()

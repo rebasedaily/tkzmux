@@ -155,7 +155,31 @@ private func hostEnvironment(home: String, shell: String = "/bin/zsh") -> [Strin
         #expect(env["ZDOTDIR"] == support.appending(path: "zsh").path)
         #expect(env["TKZMUX_ZDOTDIR"] == env["ZDOTDIR"])
         #expect(env["TKZMUX_USER_ZDOTDIR"] == home.path)
-        #expect(env["TKZMUX_SOCKET"] == support.appending(path: "tkzmux.sock").path)
+        #expect(env["TKZMUX_SOCKET"] == HookSocket.url(in: support, pid: getpid()).path)
+    }
+
+    /// The socket is per running instance, so two tkzmux sharing one support directory never
+    /// route a pane's frames to each other. The default pid is this process's own.
+    @Test func hookSocketIsNamedAfterTheInstance() throws {
+        let home = try tempDir("socket")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let support = home.appending(path: "support")
+        let a = TerminalEnvironment.make(
+            sessionID: "S1", tkzmuxDir: support,
+            baseEnvironment: hostEnvironment(home: home.path), home: home.path, instancePID: 4242
+        )
+        let b = TerminalEnvironment.make(
+            sessionID: "S1", tkzmuxDir: support,
+            baseEnvironment: hostEnvironment(home: home.path), home: home.path, instancePID: 4343
+        )
+        #expect(a["TKZMUX_SOCKET"] == support.appending(path: "tkzmux-4242.sock").path)
+        #expect(b["TKZMUX_SOCKET"] == support.appending(path: "tkzmux-4343.sock").path)
+        let spawn = TerminalEnvironment.loginShellSpawn(
+            sessionID: "S1", cwd: home.path, size: TerminalSize(rows: 24, cols: 80),
+            tkzmuxDir: support, baseEnvironment: hostEnvironment(home: home.path), home: home.path,
+            wrapperPresent: false, instancePID: 4242
+        )
+        #expect(spawn.environment["TKZMUX_SOCKET"] == a["TKZMUX_SOCKET"])
     }
 
     /// The ZDOTDIR trio is zsh's mechanism. Set for a bash or fish session, a nested
