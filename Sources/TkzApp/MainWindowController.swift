@@ -366,6 +366,9 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// The Settings window (design 7a–d): ⌘,. Holds the preference switches that used to
     /// be app-menu items; the store is still the only writer.
     let settings: SettingsWindowController
+    /// The activity feed (⌘I): the catch-up inbox of every row's turns and prompts, over the
+    /// terminal like the prompt card.
+    let activityFeed: ActivityFeedController
     /// The other way onto the card: scrolling up in the focused terminal peeks it. One policy for
     /// the window — it only ever describes the selected row's focused pane, and is reset when
     /// that changes.
@@ -521,6 +524,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         self.changes = ChangesViewerController(theme: theme)
         self.rebaseSheet = RebaseSheetController(theme: theme)
         self.settings = SettingsWindowController(store: store, theme: theme)
+        self.activityFeed = ActivityFeedController(store: store, theme: theme)
         self.chrome = ChromeViewController(
             splitViewController: splitViewController, overlay: cheatSheet.view, theme: theme)
 
@@ -561,6 +565,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         wirePalette()
         wireCheatSheet()
         wirePromptCard()
+        wireActivityFeed()
         wireChangesViewer()
         wireTabStrip()
         wireSettings()
@@ -1218,6 +1223,27 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         canPeek = { [weak self] in self?.window.isKeyWindow ?? false }
     }
 
+    /// ⌘I. Toggles the activity feed, top-centred over the detail area. The card and the palette
+    /// go first: one glass panel at a time.
+    public func toggleActivityFeed() {
+        if !activityFeed.isShown {
+            promptCard.dismiss()
+            palette.dismiss()
+        }
+        activityFeed.toggle(over: detailAnchor())
+    }
+
+    /// ↵ on a feed row selects the row (which marks its thread read); the context menu's
+    /// *Mark as unread* is the one other thing the feed asks for.
+    private func wireActivityFeed() {
+        activityFeed.onActivate = { [weak self] id in
+            self?.store.update { $0.select(id) }
+        }
+        activityFeed.onMarkUnread = { [weak self] id in
+            self?.store.update { $0.markActivityUnread(id) }
+        }
+    }
+
     /// ⌥⌘P. Toggles the card for the selected row, top-centred over the detail area.
     public func toggleFirstPromptCard() {
         guard let id = store.state.selection else {
@@ -1708,6 +1734,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         }
         cheatSheet.stop()
         promptCard.dismiss()
+        activityFeed.dismiss()
         changes.dismiss()
         rebaseSheet.dismiss()
         settings.close()
@@ -2805,6 +2832,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         newSessionMenu.theme = new
         palette.theme = new
         promptCard.theme = new
+        activityFeed.theme = new
         changes.theme = new
         rebaseSheet.theme = new
         settings.theme = new
@@ -3534,10 +3562,12 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
     /// filters on ``MenuDispatcher/performableActions``. Adding a `setHandler` line here is the
     /// whole of restoring a command to all three surfaces.
     ///
-    /// Still unimplemented: `.notifications`, `.reloadConfig`. Their ids and
-    /// chords stay in `ShortcutsTable`.
+    /// Still unimplemented: `.reloadConfig`. Its id and chord stay in `ShortcutsTable`.
     private func registerMenuHandlers() {
         dispatcher.setHandler(.newSession) { [weak self] in self?.presentNewSessionMenu() }
+        // ⌘I — the activity feed. Registering this is what put Notifications back in the menu,
+        // the palette and the cheat sheet.
+        dispatcher.setHandler(.notifications) { [weak self] in self?.toggleActivityFeed() }
         // ⌘, — the Settings window. The preference toggles that used to be their own
         // menu items live on its pages now and have no `ShortcutAction` any more.
         dispatcher.setHandler(.settings) { [weak self] in self?.presentSettings() }

@@ -199,22 +199,61 @@ extension AppState {
         sessions[id] = nil
         normalizeSessionOrder(in: session.groupID)
         if selection == id { selection = successor }
+        // A feed entry that can jump nowhere is dead.
+        activity.removeAll { $0.sessionID == id }
     }
 
     /// Records that the user looked at a session — the `attendedAt` half of the NEEDS YOU rule.
     /// Re-derives afterwards, so a `doneUnattended` row the user just selected becomes `idle`
     /// (unless something else, e.g. a pending permission prompt, still needs them).
+    ///
+    /// `attention` and `isDone` are not reset by hand here: `rederiveStatus` recomputes both from
+    /// `attendedAt`, and a prompt that is still pending re-raises `attention` anyway. Resetting
+    /// first would make every re-select of such a row look like a fresh flip into NEEDS YOU to the
+    /// activity feed, which appends on exactly that transition.
     public mutating func markAttended(_ id: SessionID, now: Date = Date()) {
         guard var session = sessions[id] else { return }
         session.lastActiveAt = now
-        session.live?.attention = false
         session.live?.attendedAt = now
-        session.live?.isDone = false
         // The prompt's own words are answered with the prompt: a later descriptor-only flip must
         // fall back to the generic text, not repeat a line about a tool that is long done.
         session.live?.lastNotificationMessage = nil
         sessions[id] = session
         rederiveStatus(for: id, now: now)
+        markActivityRead(id)
+    }
+
+    // MARK: Activity feed
+
+    /// The row was looked at: every feed entry of its thread is read.
+    public mutating func markActivityRead(_ id: SessionID) {
+        for index in activity.indices where activity[index].sessionID == id && activity[index].unread {
+            activity[index].unread = false
+        }
+    }
+
+    /// *Mark as unread* on the feed: the row's whole thread is bold again. A no-op for a row with
+    /// no entries.
+    public mutating func markActivityUnread(_ id: SessionID) {
+        for index in activity.indices
+        where activity[index].sessionID == id && activity[index].kind.isActionable && !activity[index].unread {
+            activity[index].unread = true
+        }
+    }
+
+    /// Appends one feed entry for `id`, naming the row and its group as they are now, and drops
+    /// the oldest past `activityCap`. An entry's `unread` starts as its kind's `isActionable`.
+    mutating func appendActivity(_ kind: ActivityEvent.Kind, for id: SessionID, now: Date) {
+        guard let session = sessions[id] else { return }
+        activity.append(
+            ActivityEvent(
+                sessionID: id, kind: kind, at: now,
+                sessionTitle: session.displayTitle,
+                groupName: groups[session.groupID]?.name ?? "",
+                unread: kind.isActionable))
+        if activity.count > Self.activityCap {
+            activity.removeFirst(activity.count - Self.activityCap)
+        }
     }
 
     /// Next `order` value for a group.
@@ -515,7 +554,8 @@ extension AppState {
     /// design.md → *Claude integration → Status derivation* names exactly what each hook kind
     /// clears/sets; this is that table.
     public mutating func applyHook(_ event: HookEvent, to id: SessionID, now: Date = Date()) {
-        guard sessions[id] != nil else { return }
+        guard let session = sessions[id] else { return }
+        let wasEnded = session.live?.ended ?? false
         updateLive(id) { live in
             live.lastHook = event
             switch event.kind {
@@ -565,6 +605,24 @@ extension AppState {
         }
         if event.kind == .sessionStart, let claudeSessionId = event.claudeSessionId {
             sessions[id]?.claudeSessionId = claudeSessionId
+        }
+        // The feed: a finished turn, an exit (once — `clear`/`resume` are not one, and a second
+        // `SessionEnd` on an already-ended row says nothing new), and typing a prompt as proof the
+        // user is looking at the row. NEEDS YOU entries come from `rederiveStatus` below, which
+        // also sees the flips no hook announces.
+        switch event.kind {
+        case .stop:
+            appendActivity(
+                .stop(message: ActivityEvent.storedMessage(event.lastAssistantMessage ?? "")),
+                for: id, now: now)
+        case .sessionEnd:
+            if !wasEnded, sessions[id]?.live?.ended == true {
+                appendActivity(.sessionEnded(reason: event.reason), for: id, now: now)
+            }
+        case .userPromptSubmit:
+            markActivityRead(id)
+        case .sessionStart, .notification, .unknown:
+            break
         }
         rederiveStatus(for: id, now: now)
     }
@@ -666,6 +724,12 @@ extension AppState {
     }
 
     /// Re-derives one session's status/attention/isDone from its current live state.
+    ///
+    /// Also where the activity feed learns that a row started needing the user: attention is
+    /// raised here from every path — a `Notification` hook, a descriptor-only `waiting`, the 5 s
+    /// tick that ages an unattended Stop, `setAlive` — so this is the one place that sees them all.
+    /// An entry is appended on the flip *into* attention, and when the reason changes while it is
+    /// up (an unattended Stop answered by a permission prompt on resume).
     public mutating func rederiveStatus(for id: SessionID, now: Date = Date()) {
         guard let live = sessions[id]?.live else { return }
         let outcome = StatusDerivation.derive(live, now: now)
@@ -675,6 +739,18 @@ extension AppState {
         sessions[id]?.live?.status = outcome.status
         sessions[id]?.live?.attention = outcome.attention
         sessions[id]?.live?.isDone = outcome.isDone
+        if outcome.attention, !live.attention || live.status != outcome.status,
+            case .waiting(let reason) = outcome.status
+        {
+            let message: String? =
+                switch reason {
+                case .doneUnattended: live.lastStopMessage
+                default: live.lastNotificationMessage
+                }
+            appendActivity(
+                .needsYou(reason: reason, message: message.map(ActivityEvent.storedMessage)),
+                for: id, now: now)
+        }
     }
 
     /// The periodic tick for the 60 s "done → NEEDS YOU" rule. Touches only the sessions whose

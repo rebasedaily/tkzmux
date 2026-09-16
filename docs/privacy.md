@@ -156,7 +156,11 @@ binary that is gone — `/statusline remove` in Claude Code, or deleting the key
 session id, the hook process's ppid, a timestamp, and Claude Code's own payload, which includes
 `cwd` and `transcript_path`. The app keeps up to 4 KiB of `last_assistant_message` so a row can show
 what Claude last said. All of that lives in `Session.live`, in memory, and is never written to
-`state.json` (see above). In hook-event mode the hook binary writes nothing to stdout and exits 0 on
+`state.json` (see above) — with one exception: the activity feed (⌘I) keeps a log of up to 200
+entries in `state.json`, one per finished turn, NEEDS YOU flip or Claude exit, each carrying the
+session's title, its group's name and the first 1 KiB of Claude's last reply (or its one-line
+prompt message), so a relaunch still shows what happened while you were away. Closing a row
+removes its entries. In hook-event mode the hook binary writes nothing to stdout and exits 0 on
 every path; its `settings-merge` mode is the exception — that one prints the merged settings
 document for the shim to pass on, and exits 1 without printing anything if your settings file cannot
 be parsed, in which case the shim `exec`s `claude` untouched.

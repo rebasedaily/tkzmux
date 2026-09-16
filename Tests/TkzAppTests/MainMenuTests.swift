@@ -201,7 +201,8 @@ struct MainMenuTests {
 
     @Test("A handlerless action is absent from the menu, and a handler brings it back")
     func handlerlessActionsAreAbsent() throws {
-        // Everything but Notifications: the item, its separator neighbours and its chord all go.
+        // Everything but Notifications, as the menu was before the activity feed gave ⌘I its
+        // handler: the item, its separator neighbours and its chord all go.
         let (without, _) = Self.makeMenu(
             handlers: ShortcutsTable.allActions.filter { $0 != .notifications })
         #expect(MainMenu.commandItems(in: without)[.notifications] == nil)
@@ -215,8 +216,9 @@ struct MainMenuTests {
 
     @Test("No submenu is left with a leading, trailing or doubled separator")
     func separatorsStayTidy() {
-        // The two still-unimplemented actions, dropped: View's ⌘I is alone under the menu's last
-        // rule, so removing it would otherwise end the menu on a line with nothing after it.
+        // The still-unimplemented action dropped, and ⌘I with it as it was before the activity
+        // feed: View's ⌘I is alone under the menu's last rule, so removing it would otherwise end
+        // the menu on a line with nothing after it.
         let wired = ShortcutsTable.allActions.filter {
             ![.notifications, .reloadConfig].contains($0)
         }
@@ -245,16 +247,21 @@ struct MainMenuTests {
         for action in [ShortcutAction.newSession, .searchSessions, .commandPalette, .toggleSidebar,
                        .jumpToNeedsYou, .nextSession, .previousSession, .closeTerminal,
                        .renameSession, .copyLastMessage, .showFirstPrompt, .showChanges,
-                       .rebaseOntoBase, .openFolder, .settings,
+                       .rebaseOntoBase, .openFolder, .settings, .notifications,
                        .resumeSession, .resumeAllInGroup, .toggleTheme] {
             #expect(dispatcher.canPerform(action), "\(action.rawValue) should be wired")
         }
         for n in 1...9 {
             #expect(dispatcher.canPerform(.selectSession(n)))
         }
+        // ⌘I came back with the activity feed: in the View menu, under its own rule, with its chord.
+        let notifications = try #require(MainMenu.commandItems(in: harness.controller.buildMainMenu())[.notifications])
+        #expect(notifications.keyEquivalent == "i")
+        #expect(notifications.keyEquivalentModifierMask == [.command])
+        #expect(notifications.menu?.title == "View")
         // Deliberately not implemented yet, and therefore not in the menu, the
         // palette or the cheat sheet either.
-        for action in [ShortcutAction.notifications, .reloadConfig] {
+        for action in [ShortcutAction.reloadConfig] {
             #expect(dispatcher.canPerform(action) == false, "\(action.rawValue) is not implemented yet")
             #expect(MainMenu.commandItems(in: harness.controller.buildMainMenu())[action] == nil)
         }

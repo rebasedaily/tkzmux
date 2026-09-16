@@ -214,12 +214,9 @@ public final class AttentionNotifier {
 
     /// The first line of what Claude said, or a plain "finished" when there is none.
     static func doneBody(for session: Session?) -> String {
-        guard let message = session?.live?.lastStopMessage else { return "Claude finished" }
-        let firstLine = message
-            .split(whereSeparator: \.isNewline)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
-            .first { !$0.isEmpty } ?? ""
-        guard !firstLine.isEmpty else { return "Claude finished" }
+        guard let message = session?.live?.lastStopMessage,
+            let firstLine = ActivityEvent.firstLines(of: message, count: 1).first
+        else { return "Claude finished" }
         let capped = firstLine.count > 120 ? String(firstLine.prefix(119)) + "…" : firstLine
         return "Finished: \(capped)"
     }
