@@ -330,6 +330,44 @@ struct SessionLauncherTests {
         #expect(h.session(plain)?.live?.claudeStartup == nil)
     }
 
+    /// The shell under `claude -w` never `cd`s: the command is typed in the main checkout and
+    /// Claude chdirs into the worktree itself, so that pane's OSC 7 is stale by construction. A
+    /// split from it must land where Claude is, like the pane header and git strip already do.
+    @Test("split from the Claude pane starts in Claude's cwd, not the shell's stale OSC 7")
+    func splitFromClaudePaneUsesClaudesCwd() throws {
+        let h = try Self.makeHarness()
+        defer { h.tree.tearDown() }
+        let id = try h.launcher.start(
+            NewSessionMenu.Launch(kind: .worktree, command: "claude -w wt", cwd: h.tree.repo, accountKey: nil, groupID: h.group)
+        ).get()
+        let claudePane = TerminalID(uuid: id.uuid)
+        h.store.update { state in
+            state.updateLive(id) {
+                $0.descriptor = ClaudeSessionInfo(
+                    configDir: h.tree.home + "/.claude", pid: 99, sessionId: "s", cwd: h.tree.worktree)
+                $0.claudeTerminal = claudePane
+            }
+            // What the shell reported: still the main checkout.
+            state.setPaneCwd(claudePane, path: h.tree.repo)
+        }
+        h.store.flush()
+
+        let split = try h.launcher.addTerminal(to: id, splitting: .horizontal).get()
+        h.store.flush()
+        #expect(h.host.opened.last?.terminal == split)
+        #expect(h.host.opened.last?.cwd == h.tree.worktree)
+
+        // A pane that is not running Claude keeps its own shell's answer.
+        h.store.update { state in
+            state.setPaneCwd(split, path: h.tree.home)
+            state.focusPane(split)
+        }
+        h.store.flush()
+        let again = try h.launcher.addTerminal(to: id, splitting: .vertical).get()
+        #expect(h.host.opened.last?.terminal == again)
+        #expect(h.host.opened.last?.cwd == h.tree.home)
+    }
+
     @Test("resume: a row whose shell is already up gets the command typed directly")
     func resumeIntoLiveShell() throws {
         let h = try Self.makeHarness()
