@@ -285,6 +285,11 @@ public final class SessionLauncher {
     ///
     /// The pane starts in the **source pane's** directory when the shell has told us one — "split
     /// here" should land where the user is standing — falling back to the row's resume directory.
+    ///
+    /// The pane running Claude answers with Claude's own cwd instead: its shell's OSC 7 is stale by
+    /// construction (`claude -w <name>` chdirs into the worktree itself, the shell never `cd`s), so
+    /// a split from that pane would land in the main checkout while every other surface shows the
+    /// worktree. Same rule as `Session.paneDirectory`.
     @discardableResult
     public func addTerminal(
         to id: SessionID, splitting axis: PaneAxis? = nil
@@ -292,8 +297,13 @@ public final class SessionLauncher {
         guard let session = store.state.sessions[id] else { return .failure(.unknownSession) }
         let source = session.focusedTerminalID
 
+        let claudeCwd = session.paneHostsClaude(source)
+            ? session.live?.descriptor?.cwd.flatMap { $0.isEmpty ? nil : $0 } : nil
         let cwd = Paths.expandingTilde(
-            store.state.paneCwd(source) ?? resolveDirectory(for: session).directory ?? session.cwd,
+            claudeCwd
+                ?? store.state.paneCwd(source)
+                ?? resolveDirectory(for: session).directory
+                ?? session.cwd,
             home: home)
         guard isDirectory(cwd) else { return .failure(.missingDirectory(cwd)) }
 
