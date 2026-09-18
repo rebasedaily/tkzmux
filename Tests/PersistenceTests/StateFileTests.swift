@@ -36,6 +36,8 @@ private func makeState() -> AppState {
         groupID: beta.id, cwd: "/tmp/beta", repoRoot: "/tmp/beta",
         worktreePath: "/tmp/beta/.claude/worktrees/x", isWorktree: true, accountKey: "claude-work")
     state.select(one.id)
+    // A conversation to resume, so the round trip and the on-disk-key test below both see it.
+    state.sessions[one.id]?.conversationId = "conv-1"
     state.shortcuts = ["newSession": "cmd+t", "palette": "cmd+shift+p"]
     state.windowFrame = CGRect(x: 12, y: 34, width: 1100, height: 760)
     state.sidebarWidth = 372
@@ -92,6 +94,31 @@ private func makeState() -> AppState {
         #expect(restored.checkOriginPeriodically == original.checkOriginPeriodically)
         #expect(restored.notifyOnDone == original.notifyOnDone)
     }
+}
+
+/// `Session.conversationId` is still written as `claudeSessionId`: schema v3 predates the Swift
+/// rename, and the key only moves with the v4 lift (TKZ-79). Until then a `state.json` from the
+/// current release must load unchanged, and one this build writes must load in that release.
+@Test func conversationIdIsStoredUnderTheV3Key() throws {
+    let original = makeState()
+    let one = try #require(original.orderedSessions.first { $0.conversationId == "conv-1" })
+    let data = try StateFile.encode(StateDocument(state: PersistedState(original)))
+    var object = try JSONDecoder().decode([String: JSONValue].self, from: data)
+
+    guard case .array(var sessions)? = object["sessions"] else { Issue.record("no sessions"); return }
+    let index = try #require(sessions.firstIndex { $0.objectValue?["id"]?.stringValue == one.id.rawValue })
+    var row = try #require(sessions[index].objectValue)
+    #expect(row["claudeSessionId"]?.stringValue == "conv-1")
+    #expect(row["conversationId"] == nil)
+
+    // And the other direction: the v3 key, as the current release writes it, lands in the field.
+    row["claudeSessionId"] = .string("conv-from-disk")
+    sessions[index] = .object(row)
+    object["sessions"] = .array(sessions)
+    var restored = AppState()
+    let warnings = try StateFile.decode(JSONEncoder().encode(object)).state.apply(to: &restored)
+    #expect(warnings.isEmpty)
+    #expect(restored.sessions[one.id]?.conversationId == "conv-from-disk")
 }
 
 @Test func theDoneNotificationSwitchRoundTripsAndDefaultsOn() throws {

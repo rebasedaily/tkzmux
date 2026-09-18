@@ -226,7 +226,7 @@ public enum Fixture {
             worktreePath: worktreePath,
             isWorktree: worktreePath != nil,
             accountKey: spec.account,
-            claudeSessionId: String(format: "11111111-2222-4333-8444-%012d", n),
+            conversationId: String(format: "11111111-2222-4333-8444-%012d", n),
             createdAt: created,
             lastActiveAt: now.addingTimeInterval(-Double(n) * 60)
         )
@@ -243,7 +243,7 @@ public enum Fixture {
         live.descriptor = ClaudeSessionInfo(
             configDir: spec.account == "claude" ? "~/.claude" : "~/.\(spec.account)",
             pid: pid_t(40_000 + n),
-            sessionId: session.claudeSessionId ?? "",
+            sessionId: session.conversationId ?? "",
             cwd: cwd,
             startedAt: created,
             version: "2.1.263",
@@ -276,14 +276,14 @@ public enum Fixture {
             live.lastStopMessage = "Done — the failing test now passes; want me to open a PR?"
             live.lastStopAt = now.addingTimeInterval(-420)
             live.lastHook = HookEvent(
-                kind: .stop, sessionID: session.id, claudeSessionId: session.claudeSessionId,
+                kind: .stop, sessionID: session.id, conversationId: session.conversationId,
                 lastAssistantMessage: live.lastStopMessage, pid: live.pid,
                 receivedAt: now.addingTimeInterval(-420))
         }
         if let context = spec.context {
             live.context = SessionSidecar(
                 updatedAt: now,
-                sessionId: session.claudeSessionId ?? "",
+                sessionId: session.conversationId ?? "",
                 accountKey: spec.account,
                 contextUsedPercentage: context,
                 model: SessionSidecar.Model(id: "claude-opus-5", displayName: "Opus 5"),

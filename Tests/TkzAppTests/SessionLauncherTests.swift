@@ -61,14 +61,14 @@ struct SessionLauncherTests {
     /// A restored row: in the store with no live state, as `state.json` hands it over.
     static func restoredRow(
         _ h: Harness, cwd: String? = nil, worktree: String? = nil, accountKey: String = "claude",
-        claudeSessionId: String? = "sid-1"
+        conversationId: String? = "sid-1"
     ) -> SessionID {
         let id = SessionID.generate()
         h.store.update { state in
             var session = Session(
                 id: id, groupID: h.group, cwd: cwd ?? h.tree.repo, repoRoot: h.tree.repo,
                 worktreePath: worktree, isWorktree: worktree != nil,
-                accountKey: accountKey, claudeSessionId: claudeSessionId)
+                accountKey: accountKey, conversationId: conversationId)
             session.live = nil
             state.sessions[id] = session
         }
@@ -118,8 +118,8 @@ struct SessionLauncherTests {
     func reopenPinsThePrimary() throws {
         let h = try Self.makeHarness()
         defer { h.tree.tearDown() }
-        let id = Self.restoredRow(h, accountKey: "claude", claudeSessionId: "abc")
-        #expect(h.launcher.resume(id) == .success(.resumed(claudeSessionId: "abc")))
+        let id = Self.restoredRow(h, accountKey: "claude", conversationId: "abc")
+        #expect(h.launcher.resume(id) == .success(.resumed(conversationId: "abc")))
         // A row that ran on `~/.claude` must resume there even if the user's shell defaults
         // elsewhere — the recorded key is the truth, and the wrapper re-export enforces it.
         #expect(h.host.opened.first?.env["CLAUDE_CONFIG_DIR"] == h.tree.home + "/.claude")
@@ -243,12 +243,12 @@ struct SessionLauncherTests {
     func resumeRestoredRow() throws {
         let h = try Self.makeHarness()
         defer { h.tree.tearDown() }
-        let id = Self.restoredRow(h, worktree: h.tree.worktree, accountKey: "claude-work", claudeSessionId: "abc-123")
+        let id = Self.restoredRow(h, worktree: h.tree.worktree, accountKey: "claude-work", conversationId: "abc-123")
         h.host.savedSnapshots[id] = Data("saved".utf8)
 
         let outcome = h.launcher.resume(id)
         h.store.flush()
-        #expect(outcome == .success(.resumed(claudeSessionId: "abc-123")))
+        #expect(outcome == .success(.resumed(conversationId: "abc-123")))
         #expect(h.host.restored.first?.cwd == h.tree.worktree)
         #expect(h.host.restored.first?.env["CLAUDE_CONFIG_DIR"] == h.tree.home + "/.claude-work")
         // Handed to the shell it spawns, not typed in afterwards.
@@ -256,7 +256,7 @@ struct SessionLauncherTests {
         #expect(h.host.ran.isEmpty)
         #expect(h.store.state.selection == id)
         // The conversation id is untouched: SessionStart will confirm the same one.
-        #expect(h.session(id)?.claudeSessionId == "abc-123")
+        #expect(h.session(id)?.conversationId == "abc-123")
     }
 
     /// The regression this whole rebase was about: a boot command must reach only the row's
@@ -266,12 +266,12 @@ struct SessionLauncherTests {
     func resumeSplitRowBootsOnlyTheFocusedPane() throws {
         let h = try Self.makeHarness()
         defer { h.tree.tearDown() }
-        let id = Self.restoredRow(h, claudeSessionId: "abc-123")
+        let id = Self.restoredRow(h, conversationId: "abc-123")
         let first = TerminalID(uuid: id.uuid)
         h.store.update { _ = $0.splitPane(first, axis: .vertical) }
         h.store.flush()
 
-        #expect(h.launcher.resume(id) == .success(.resumed(claudeSessionId: "abc-123")))
+        #expect(h.launcher.resume(id) == .success(.resumed(conversationId: "abc-123")))
         h.store.flush()
         #expect(h.host.opened.count == 2, "both panes get a shell")
         #expect(h.host.bootCommands == ["claude --resume abc-123"], "typed into exactly one pane")
@@ -311,20 +311,20 @@ struct SessionLauncherTests {
         #expect(split != TerminalID(uuid: started.uuid))
 
         // A resume of a restored split row: the focused pane, and only it.
-        let restored = Self.restoredRow(h, claudeSessionId: "abc-123")
+        let restored = Self.restoredRow(h, conversationId: "abc-123")
         let first = TerminalID(uuid: restored.uuid)
         var second: TerminalID?
         h.store.update { second = $0.splitPane(first, axis: .vertical) }
         h.store.flush()
         let focused = try #require(second)
         #expect(h.session(restored)?.focusedTerminalID == focused, "a split focuses the new pane")
-        #expect(h.launcher.resume(restored) == .success(.resumed(claudeSessionId: "abc-123")))
+        #expect(h.launcher.resume(restored) == .success(.resumed(conversationId: "abc-123")))
         h.store.flush()
         #expect(h.session(restored)?.live?.claudeStartup?.terminal == focused)
         #expect(h.session(restored)?.live?.claudeStartup?.command == "claude --resume abc-123")
 
         // A plain reopen carries no command, so it records nothing.
-        let plain = Self.restoredRow(h, claudeSessionId: nil)
+        let plain = Self.restoredRow(h, conversationId: nil)
         _ = h.launcher.reopen(plain)
         h.store.flush()
         #expect(h.session(plain)?.live?.claudeStartup == nil)
@@ -372,10 +372,10 @@ struct SessionLauncherTests {
     func resumeIntoLiveShell() throws {
         let h = try Self.makeHarness()
         defer { h.tree.tearDown() }
-        let id = Self.restoredRow(h, claudeSessionId: "abc")
+        let id = Self.restoredRow(h, conversationId: "abc")
         _ = h.launcher.reopen(id)
         h.store.flush()
-        #expect(h.launcher.resume(id) == .success(.resumed(claudeSessionId: "abc")))
+        #expect(h.launcher.resume(id) == .success(.resumed(conversationId: "abc")))
         // The one case that is still typed: this shell was already up and at its prompt, so it
         // has finished every `tcsetattr` its startup performs and the boot command is long spent.
         #expect(h.host.ran.map(\.command) == ["claude --resume abc"])
@@ -387,17 +387,17 @@ struct SessionLauncherTests {
     func resumeEdges() throws {
         let h = try Self.makeHarness()
         defer { h.tree.tearDown() }
-        let running = Self.restoredRow(h, claudeSessionId: "abc")
+        let running = Self.restoredRow(h, conversationId: "abc")
         h.store.update { state in
             state.setLive(LiveSessionState(shellPid: 1), for: running)
             state.applyDescriptor(
                 ClaudeSessionInfo(configDir: "/x/.claude", pid: 9, sessionId: "abc", status: .busy),
                 alive: true, to: running)
         }
-        #expect(h.launcher.resume(running) == .success(.claudeRunning))
+        #expect(h.launcher.resume(running) == .success(.agentRunning))
         #expect(h.host.ran.isEmpty)
 
-        let shellOnly = Self.restoredRow(h, claudeSessionId: nil)
+        let shellOnly = Self.restoredRow(h, conversationId: nil)
         #expect(h.launcher.resume(shellOnly) == .success(.nothingToResume))
         #expect(h.host.opened.map(\.id) == [shellOnly])
         #expect(h.host.ran.isEmpty)
@@ -409,14 +409,14 @@ struct SessionLauncherTests {
     func resumeAllInGroup() throws {
         let h = try Self.makeHarness()
         defer { h.tree.tearDown() }
-        let a = Self.restoredRow(h, claudeSessionId: "a")
-        let b = Self.restoredRow(h, claudeSessionId: "b")
-        let noConversation = Self.restoredRow(h, claudeSessionId: nil)
+        let a = Self.restoredRow(h, conversationId: "a")
+        let b = Self.restoredRow(h, conversationId: "b")
+        let noConversation = Self.restoredRow(h, conversationId: nil)
         let broken = SessionID.generate()
         let missing = h.tree.base.appending(path: "gone").path
         h.store.update { state in
             state.sessions[broken] = Session(id: broken, groupID: h.group, cwd: missing, repoRoot: missing,
-                                             accountKey: "claude", claudeSessionId: "c")
+                                             accountKey: "claude", conversationId: "c")
             state.select(noConversation)
         }
         h.store.flush()

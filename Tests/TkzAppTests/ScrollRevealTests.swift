@@ -139,8 +139,8 @@ struct ScrollRevealTests {
         try #require(ids.count >= 2)
         // Every fixture row carries a Claude id; make the first one a plain shell.
         let shell = ids[0], claude = ids[1]
-        harness.mutate { $0.sessions[shell]?.claudeSessionId = nil }
-        #expect(harness.store.state.sessions[claude]?.claudeSessionId != nil)
+        harness.mutate { $0.sessions[shell]?.conversationId = nil }
+        #expect(harness.store.state.sessions[claude]?.conversationId != nil)
 
         harness.mutate { $0.select(shell) }
         let shellPane = try #require(harness.store.state.sessions[shell]?.focusedTerminalID)

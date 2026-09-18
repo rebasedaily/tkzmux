@@ -300,7 +300,7 @@ public final class HookServer: Sendable {
         let ppidRaw = (obj["ppid"] as? Int) ?? 0
         let payload = (obj["payload"] as? [String: Any]) ?? [:]
 
-        let claudeSessionId = payload["session_id"] as? String
+        let conversationId = payload["session_id"] as? String
         let notificationTypeRaw = payload["notification_type"] as? String
         let lastAssistantMessageFull = payload["last_assistant_message"] as? String
         // `Notification.message` — Claude's own one-liner ("Claude needs your permission to use
@@ -316,7 +316,7 @@ public final class HookServer: Sendable {
         let hookEvent = HookEvent(
             kind: .init(raw: event),
             sessionID: sessionID,
-            claudeSessionId: claudeSessionId,
+            conversationId: conversationId,
             notificationType: notificationTypeRaw.map(HookEvent.NotificationType.init(raw:)),
             lastAssistantMessage: lastAssistantMessageFull.map { prefixUTF8($0, maxBytes: 4096) },
             message: message.map { prefixUTF8($0, maxBytes: 1024) },

@@ -55,7 +55,7 @@ extension AppState {
 
     /// Binds a discovered Claude descriptor to a session: the "adopt" half of
     /// design.md → *Claude integration → Identity*. Creates `live` if the session had none, and
-    /// refreshes `claudeSessionId` (which rotates on `/clear`, resume and fork).
+    /// refreshes `conversationId` (which rotates on `/clear`, resume and fork).
     ///
     /// Does nothing if the session is unknown.
     public mutating func adoptDescriptor(
@@ -68,7 +68,7 @@ extension AppState {
         live.pid = descriptor.pid
         live.descriptor = descriptor
         session.live = live
-        session.claudeSessionId = descriptor.sessionId
+        session.conversationId = descriptor.sessionId
         session.lastActiveAt = now
         sessions[id] = session
     }
@@ -525,14 +525,14 @@ extension AppState {
     /// rather than on ours: the sidecar is written by a statusline that knows nothing about tkzmux
     /// rows. A session that has since been resumed under a new conversation id simply stops matching.
     public mutating func setSessionSidecar(_ sidecar: SessionSidecar) {
-        guard let id = sessions.values.first(where: { $0.claudeSessionId == sidecar.sessionId })?.id
+        guard let id = sessions.values.first(where: { $0.conversationId == sidecar.sessionId })?.id
         else { return }
         updateLive(id) { $0.context = sidecar }
     }
 
-    public mutating func clearSessionSidecar(claudeSessionId: String) {
+    public mutating func clearSessionSidecar(conversationId: String) {
         guard let id = sessions.values
-            .first(where: { $0.live?.context?.sessionId == claudeSessionId })?.id
+            .first(where: { $0.live?.context?.sessionId == conversationId })?.id
         else { return }
         updateLive(id) { $0.context = nil }
     }
@@ -540,8 +540,8 @@ extension AppState {
     /// What `TranscriptUsageReader` (ClaudeBridge) summed off a session's transcript, joined on
     /// Claude's own session id — same reasoning as ``setSessionSidecar(_:)``: the reader knows
     /// nothing about tkzmux rows, only about a Claude session id and its transcript.
-    public mutating func setSessionUsage(_ usage: SessionUsage, claudeSessionId: String) {
-        guard let id = sessions.values.first(where: { $0.claudeSessionId == claudeSessionId })?.id
+    public mutating func setSessionUsage(_ usage: SessionUsage, conversationId: String) {
+        guard let id = sessions.values.first(where: { $0.conversationId == conversationId })?.id
         else { return }
         updateLive(id) { $0.usage = usage }
     }
@@ -603,8 +603,8 @@ extension AppState {
                 break
             }
         }
-        if event.kind == .sessionStart, let claudeSessionId = event.claudeSessionId {
-            sessions[id]?.claudeSessionId = claudeSessionId
+        if event.kind == .sessionStart, let conversationId = event.conversationId {
+            sessions[id]?.conversationId = conversationId
         }
         // The feed: a finished turn, an exit (once — `clear`/`resume` are not one, and a second
         // `SessionEnd` on an already-ended row says nothing new), and typing a prompt as proof the
@@ -658,7 +658,7 @@ extension AppState {
             live.pendingNotification = nil
         }
         session.live = live
-        session.claudeSessionId = descriptor.sessionId
+        session.conversationId = descriptor.sessionId
         session.lastActiveAt = now
         // `claude -w` starts Claude *inside* the worktree it just created, so the descriptor's cwd
         // is the first thing that says where it went (design.md → *Session flows → New worktree*).

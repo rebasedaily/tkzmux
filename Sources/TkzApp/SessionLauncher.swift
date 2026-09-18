@@ -11,7 +11,7 @@
 //                     file on disk — is restored under a fresh shell, so the user sees the old
 //                     content with a new prompt beneath it. Happens lazily, the first time the row
 //                     is shown, and is also the first half of a resume.
-//   * `resume(_:)`  — `claude --resume <claudeSessionId>` in the directory the conversation lives
+//   * `resume(_:)`  — `claude --resume <conversationId>` in the directory the conversation lives
 //                     in: the worktree while it still exists, else where the session started, else
 //                     the repo root. A worktree that is gone clears the `WT` badge.
 //   * `remove(_:)`  — the row, its shell and its snapshot go (the worktree on disk is never
@@ -353,25 +353,25 @@ public final class SessionLauncher {
 
     /// What `resume` did.
     public enum ResumeOutcome: Equatable, Sendable {
-        /// Claude is already running in this row (a descriptor is bound); nothing typed.
-        case claudeRunning
-        /// The row has no `claudeSessionId` to resume; the shell was (re)opened and that is all.
+        /// The agent is already running in this row (a descriptor is bound); nothing typed.
+        case agentRunning
+        /// The row has no `conversationId` to resume; the shell was (re)opened and that is all.
         case nothingToResume
         /// `claude --resume <id>` was typed into the row's shell.
-        case resumed(claudeSessionId: String)
+        case resumed(conversationId: String)
     }
 
-    /// `claude --resume <claudeSessionId>` in the row's shell, reopening it first if it has none.
+    /// `claude --resume <conversationId>` in the row's shell, reopening it first if it has none.
     @discardableResult
     public func resume(_ id: SessionID, select: Bool = true) -> Result<ResumeOutcome, Failure> {
         guard let before = store.state.sessions[id] else { return .failure(.unknownSession) }
-        if before.live?.descriptor != nil { return .success(.claudeRunning) }
+        if before.live?.descriptor != nil { return .success(.agentRunning) }
 
         let hadShell = before.live != nil
         // Worked out before the shell is opened: a shell this call spawns is handed the command as
         // `TKZMUX_BOOT_COMMAND` rather than having it typed in afterwards.
-        let claudeSessionId = before.claudeSessionId.flatMap { $0.isEmpty ? nil : $0 }
-        let command = claudeSessionId.map { "claude --resume \($0)" }
+        let conversationId = before.conversationId.flatMap { $0.isEmpty ? nil : $0 }
+        let command = conversationId.map { "claude --resume \($0)" }
         if !hadShell {
             if case .failure(let failure) = reopen(id, bootCommand: command) {
                 return .failure(failure)
@@ -379,7 +379,7 @@ public final class SessionLauncher {
         }
         if select { store.update { $0.select(id) } }
 
-        guard let claudeSessionId, let command else { return .success(.nothingToResume) }
+        guard let conversationId, let command else { return .success(.nothingToResume) }
         // A shell that is already sitting at its prompt has finished every `tcsetattr` its startup
         // performs, so typing into it is sound — and it is the only way in, the boot command
         // having been consumed when that shell started. Into the focused pane: a resume is
@@ -389,7 +389,7 @@ public final class SessionLauncher {
             host.run(terminal, command: command)
         }
         logger.info("resume \(id.rawValue, privacy: .public): \(command, privacy: .public)")
-        return .success(.resumed(claudeSessionId: claudeSessionId))
+        return .success(.resumed(conversationId: conversationId))
     }
 
     /// "Resume all in group": every row in `groupID` that has a conversation to resume and no
@@ -399,14 +399,14 @@ public final class SessionLauncher {
         resumeAll(store.state.sessions(in: groupID).map(\.id))
     }
 
-    /// The auto-resume-on-launch pass: every restored row with a `claudeSessionId`.
+    /// The auto-resume-on-launch pass: every restored row with a `conversationId`.
     @discardableResult
     public func resumeAll(_ ids: [SessionID]) -> (resumed: [SessionID], failed: [(SessionID, Failure)]) {
         var resumed: [SessionID] = []
         var failed: [(SessionID, Failure)] = []
         for id in ids {
             guard let session = store.state.sessions[id],
-                  session.claudeSessionId != nil, session.live?.descriptor == nil
+                  session.conversationId != nil, session.live?.descriptor == nil
             else { continue }
             switch resume(id, select: false) {
             case .success(.resumed): resumed.append(id)

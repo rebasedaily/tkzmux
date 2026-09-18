@@ -168,9 +168,10 @@ public struct Session: Hashable, Sendable, Identifiable {
     public var isWorktree: Bool
     /// `Account.key` — the basename of the Claude config dir (`claude`, `claude-work`).
     public var accountKey: String
-    /// The most recent Claude `sessionId`, used for `claude --resume <id>`. Rotates on
-    /// `/clear`, resume and fork, so it is updated whenever a descriptor or SessionStart says so.
-    public var claudeSessionId: String?
+    /// The agent's own conversation id — for Claude, its `session_id` — used for
+    /// `claude --resume <id>`. Opaque to tkzmux. Rotates on `/clear`, resume and fork, so it is
+    /// updated whenever a descriptor or SessionStart says so.
+    public var conversationId: String?
     public var createdAt: Date
     public var lastActiveAt: Date
     /// This session's own opt-out of the token usage/spend feature (design: enable/disable, per
@@ -202,7 +203,7 @@ public struct Session: Hashable, Sendable, Identifiable {
         worktreePath: String? = nil,
         isWorktree: Bool = false,
         accountKey: String,
-        claudeSessionId: String? = nil,
+        conversationId: String? = nil,
         createdAt: Date = Date(),
         lastActiveAt: Date = Date(),
         spendTrackingDisabled: Bool? = nil,
@@ -220,7 +221,7 @@ public struct Session: Hashable, Sendable, Identifiable {
         self.worktreePath = worktreePath
         self.isWorktree = isWorktree
         self.accountKey = accountKey
-        self.claudeSessionId = claudeSessionId
+        self.conversationId = conversationId
         self.createdAt = createdAt
         self.lastActiveAt = lastActiveAt
         self.spendTrackingDisabled = spendTrackingDisabled
@@ -405,7 +406,10 @@ extension Session: Codable {
     /// `live` is deliberately absent: process state is rebuilt at launch, never persisted.
     private enum CodingKeys: String, CodingKey {
         case id, groupID, order, title, cwd, repoRoot, worktreePath, isWorktree
-        case accountKey, claudeSessionId, createdAt, lastActiveAt, spendTrackingDisabled
+        case accountKey, createdAt, lastActiveAt, spendTrackingDisabled
+        /// Still `claudeSessionId` on disk: schema v3 predates the rename. The v4 lift (TKZ-79)
+        /// renames the key; until then this pin is what keeps every existing `state.json` loading.
+        case conversationId = "claudeSessionId"
         case notificationsMuted
         case tabs, activeTab
     }
@@ -1319,8 +1323,8 @@ public struct HookEvent: Hashable, Sendable, Codable {
     public var kind: Kind
     /// `TKZMUX_SESSION_ID` as sent by the shim, when it parsed.
     public var sessionID: SessionID?
-    /// Claude's own `session_id` from the hook payload.
-    public var claudeSessionId: String?
+    /// The agent's conversation id from the hook payload — for Claude, its `session_id`.
+    public var conversationId: String?
     public var notificationType: NotificationType?
     /// Up to 4 KiB of `Stop.last_assistant_message`.
     public var lastAssistantMessage: String?
@@ -1336,7 +1340,7 @@ public struct HookEvent: Hashable, Sendable, Codable {
     public init(
         kind: Kind,
         sessionID: SessionID? = nil,
-        claudeSessionId: String? = nil,
+        conversationId: String? = nil,
         notificationType: NotificationType? = nil,
         lastAssistantMessage: String? = nil,
         message: String? = nil,
@@ -1347,7 +1351,7 @@ public struct HookEvent: Hashable, Sendable, Codable {
     ) {
         self.kind = kind
         self.sessionID = sessionID
-        self.claudeSessionId = claudeSessionId
+        self.conversationId = conversationId
         self.notificationType = notificationType
         self.lastAssistantMessage = lastAssistantMessage
         self.message = message
