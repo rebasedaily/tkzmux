@@ -351,12 +351,12 @@ extension StatuslineEvent {
     @Test func aSidecarLandsOnTheRowWithTheMatchingClaudeSessionId() {
         var state = AppState.fixture
         guard let session = state.sessions.values.first else { Issue.record("no fixture"); return }
-        state.sessions[session.id]?.claudeSessionId = "conv-1"
+        state.sessions[session.id]?.conversationId = "conv-1"
 
         state.setSessionSidecar(SessionSidecar(sessionId: "conv-1", contextUsedPercentage: 62))
         #expect(state.sessions[session.id]?.live?.context?.contextUsedPercentage == 62)
 
-        state.clearSessionSidecar(claudeSessionId: "conv-1")
+        state.clearSessionSidecar(conversationId: "conv-1")
         #expect(state.sessions[session.id]?.live?.context == nil)
     }
 

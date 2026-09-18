@@ -1287,7 +1287,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         guard let effect = transition(&scrollReveal) else { return }
         switch effect {
         case .reveal:
-            guard session.claudeSessionId != nil else { return }
+            guard session.conversationId != nil else { return }
             guard canPeek() else {
                 // Not ours to show right now. Forget the reveal rather than remember it, so the
                 // next scroll once the window is key is judged afresh instead of "already shown".
@@ -2687,7 +2687,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         switch outcome {
         case .success(.resumed):
             focusTerminalIfSessionShown()
-        case .success(.claudeRunning):
+        case .success(.agentRunning):
             showNotice("Claude is already running in this session", for: .seconds(3))
         case .success(.nothingToResume):
             showNotice("No Claude conversation to resume \u{00B7} the shell is back", for: .seconds(4))
@@ -2949,7 +2949,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         menu.autoenablesItems = false
 
         let resume = contextItem("Resume", action: #selector(contextResume(_:)), id: id.rawValue)
-        resume.isEnabled = session.claudeSessionId != nil && session.live?.descriptor == nil
+        resume.isEnabled = session.conversationId != nil && session.live?.descriptor == nil
         resume.identifier = ContextItemID.resume
         menu.addItem(resume)
 
@@ -3018,7 +3018,7 @@ public final class MainWindowController: NSObject, NSWindowDelegate {
         menu.addItem(new)
         let resumeAll = contextItem("Resume all in \(group.name)", action: #selector(contextResumeAll(_:)), id: id.rawValue)
         resumeAll.isEnabled = store.state.sessions(in: id).contains {
-            $0.claudeSessionId != nil && $0.live?.descriptor == nil
+            $0.conversationId != nil && $0.live?.descriptor == nil
         }
         resumeAll.identifier = ContextItemID.resumeAll
         menu.addItem(resumeAll)

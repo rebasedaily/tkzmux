@@ -82,7 +82,7 @@ struct ClaudeIntegrationTests {
         let live = h.store.state.sessions[h.session]?.live
         #expect(live?.status == .working)
         #expect(live?.descriptor?.pid == 4242)
-        #expect(h.store.state.sessions[h.session]?.claudeSessionId == "claude-sid")
+        #expect(h.store.state.sessions[h.session]?.conversationId == "claude-sid")
         #expect(h.integration.externalDescriptors.isEmpty)
     }
 
@@ -93,7 +93,7 @@ struct ClaudeIntegrationTests {
         let t0 = Date()
         h.integration.handle(DescriptorEvent.updated(Self.descriptor(pid: 4242, status: .busy, statusUpdatedAt: t0), alive: true))
 
-        let prompt = HookEvent(kind: .notification, sessionID: h.session, claudeSessionId: "claude-sid",
+        let prompt = HookEvent(kind: .notification, sessionID: h.session, conversationId: "claude-sid",
                                notificationType: .permissionPrompt, receivedAt: t0.addingTimeInterval(1))
         h.integration.handle(HookFrame.hook(prompt, ppid: 4242, fullMessage: nil, cwd: nil, transcriptPath: nil))
         #expect(h.store.state.sessions[h.session]?.status == .waiting(.permission))
@@ -142,18 +142,18 @@ struct ClaudeIntegrationTests {
         let h = Self.makeHarness()
         // No launch frame, no descriptor: only the shell pid (1, i.e. launchd — the walk stops there
         // without matching anything else) is known.
-        let bySid = HookEvent(kind: .stop, sessionID: nil, claudeSessionId: "resumed-sid")
+        let bySid = HookEvent(kind: .stop, sessionID: nil, conversationId: "resumed-sid")
         #expect(h.integration.sessionID(forHook: bySid, ppid: 0) == nil)
 
-        h.store.update { $0.sessions[h.session]?.claudeSessionId = "resumed-sid" }
+        h.store.update { $0.sessions[h.session]?.conversationId = "resumed-sid" }
         #expect(h.integration.sessionID(forHook: bySid, ppid: 0) == h.session)
 
         // ppid tree: a frame whose ppid *is* a bound claude pid.
         h.integration.handle(Self.launch(h.session, pid: 4242))
-        let byTree = HookEvent(kind: .stop, sessionID: nil, claudeSessionId: "unrelated")
+        let byTree = HookEvent(kind: .stop, sessionID: nil, conversationId: "unrelated")
         #expect(h.integration.sessionID(forHook: byTree, ppid: 4242) == h.session)
         // A sid that is not in the store must not be trusted over the fallbacks.
-        let strangerSid = HookEvent(kind: .stop, sessionID: .generate(), claudeSessionId: "resumed-sid")
+        let strangerSid = HookEvent(kind: .stop, sessionID: .generate(), conversationId: "resumed-sid")
         #expect(h.integration.sessionID(forHook: strangerSid, ppid: 0) == h.session)
     }
 
@@ -267,7 +267,7 @@ struct ClaudeIntegrationTests {
         h.store.update { $0.setLive(nil, for: h.session) }
         h.integration.handle(Self.launch(h.session, pid: 4242))
         #expect(h.integration.pidToSession[4242] == nil)
-        let hook = HookEvent(kind: .stop, sessionID: h.session, claudeSessionId: "claude-sid")
+        let hook = HookEvent(kind: .stop, sessionID: h.session, conversationId: "claude-sid")
         #expect(h.integration.sessionID(forHook: hook, ppid: 0) == nil)
         h.integration.handle(HookFrame.hook(hook, ppid: 0, fullMessage: nil, cwd: nil, transcriptPath: nil))
         #expect(h.store.state.sessions[h.session]?.live == nil)
@@ -307,7 +307,7 @@ struct ClaudeIntegrationTests {
         // claude 5000 → pane zsh 4000 → us
         let tree = FakeAncestry(parents: [5000: 4000, 4000: 777, 777: 1], names: [777: "tkzmux"])
         let h = Self.makeHarness(ancestry: tree)
-        h.store.update { $0.sessions[h.session]?.claudeSessionId = "claude-sid" }
+        h.store.update { $0.sessions[h.session]?.conversationId = "claude-sid" }
         h.integration.handle(DescriptorEvent.updated(Self.descriptor(pid: 5000, status: .busy), alive: true))
         let live = h.store.state.sessions[h.session]?.live
         #expect(live?.status == .working)
@@ -324,7 +324,7 @@ struct ClaudeIntegrationTests {
             parents: [5000: 4000, 4000: 900, 900: 300, 300: 777, 777: 1],
             names: [900: "tkzmux", 777: "tkzmux"])
         let h = Self.makeHarness(shellPid: 300, ancestry: tree)
-        h.store.update { $0.sessions[h.session]?.claudeSessionId = "claude-sid" }
+        h.store.update { $0.sessions[h.session]?.conversationId = "claude-sid" }
         let info = Self.descriptor(pid: 5000, status: .busy)
         h.integration.handle(DescriptorEvent.updated(info, alive: true))
         let key = DescriptorKey(configDir: info.configDir, pid: 5000)
@@ -334,7 +334,7 @@ struct ClaudeIntegrationTests {
         #expect(live?.pid == nil)
         #expect(live?.descriptor == nil)
         // The bare walk refuses too: a hook from that tree with no sid is unattributed.
-        let hook = HookEvent(kind: .stop, sessionID: nil, claudeSessionId: "unrelated")
+        let hook = HookEvent(kind: .stop, sessionID: nil, conversationId: "unrelated")
         #expect(h.integration.sessionID(forHook: hook, ppid: 5000) == nil)
     }
 
@@ -343,7 +343,7 @@ struct ClaudeIntegrationTests {
         // Terminal.app's claude: 5000 → zsh 4000 → Terminal 200 → launchd.
         let tree = FakeAncestry(parents: [5000: 4000, 4000: 200, 200: 1], names: [777: "tkzmux"])
         let h = Self.makeHarness(ancestry: tree)
-        h.store.update { $0.sessions[h.session]?.claudeSessionId = "claude-sid" }
+        h.store.update { $0.sessions[h.session]?.conversationId = "claude-sid" }
         let info = Self.descriptor(pid: 5000, status: .busy)
         h.integration.handle(DescriptorEvent.updated(info, alive: true))
         #expect(h.integration.externalDescriptors[DescriptorKey(configDir: info.configDir, pid: 5000)] != nil)
@@ -373,7 +373,7 @@ struct ClaudeIntegrationTests {
             names: [888: "tkzmux", 777: "tkzmux"])
         var shared = AppState.startup(homeDirectory: "/tmp/nowhere")
         let session = shared.createSession(groupID: shared.orderedGroups[0].id, cwd: "/tmp/nowhere", accountKey: "claude")
-        shared.sessions[session.id]?.claudeSessionId = "claude-sid"
+        shared.sessions[session.id]?.conversationId = "claude-sid"
 
         var stateA = shared
         stateA.setLive(LiveSessionState(shellPid: 300, status: .idle), for: session.id)
@@ -491,11 +491,11 @@ struct ClaudeIntegrationTests {
         #expect(summary.recapSource == .awaySummary)
         #expect(summary.recap?.hasPrefix("Goal was the build") == true)
 
-        // The path came from the hook frame, and the fallback locates by claudeSessionId.
+        // The path came from the hook frame, and the fallback locates by conversationId.
         h.integration.handle(HookFrame.hook(stop, ppid: 4242, fullMessage: nil, cwd: nil, transcriptPath: "/tmp/from-hook.jsonl"))
         #expect(h.integration.transcriptPath(for: h.session) == "/tmp/from-hook.jsonl")
         h.integration.forget(h.session)
-        #expect(h.integration.transcriptPath(for: h.session) == nil, "no path, no claudeSessionId → nothing to locate")
+        #expect(h.integration.transcriptPath(for: h.session) == nil, "no path, no conversationId → nothing to locate")
     }
 
     // MARK: - The real relay
@@ -544,7 +544,7 @@ struct ClaudeIntegrationTests {
         let live = store.state.sessions[session.id]?.live
         #expect(live?.lastStopMessage == "hello from the relay")
         #expect(live?.lastHook?.kind == .stop)
-        #expect(live?.lastHook?.claudeSessionId == "abc")
+        #expect(live?.lastHook?.conversationId == "abc")
         #expect(live?.isDone == true)
     }
 

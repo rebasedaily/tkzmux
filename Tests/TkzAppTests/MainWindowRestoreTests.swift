@@ -26,7 +26,7 @@ struct MainWindowRestoreTests {
         var ids: [SessionID] = []
         for n in 0..<rows {
             let session = state.createSession(groupID: group.id, cwd: cwd, accountKey: "claude")
-            state.sessions[session.id]?.claudeSessionId = "conv-\(n)"
+            state.sessions[session.id]?.conversationId = "conv-\(n)"
             ids.append(session.id)
         }
         state.select(ids.first)

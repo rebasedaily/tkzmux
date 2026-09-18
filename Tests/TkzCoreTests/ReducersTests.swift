@@ -50,7 +50,7 @@ import Testing
             kind: .interactive, name: "adopted", nameSource: .auto, status: .busy)
         state.adoptDescriptor(descriptor, for: id)
         #expect(state.sessions[id]?.live?.pid == 900)
-        #expect(state.sessions[id]?.claudeSessionId == "new-session-id")
+        #expect(state.sessions[id]?.conversationId == "new-session-id")
         #expect(state.sessions[id]?.live?.descriptor?.name == "adopted")
         // Adopting an unknown session is a no-op, not a crash.
         let count = state.sessions.count
@@ -612,10 +612,10 @@ import Testing
     @Test func sessionStartClearsEndedAndPendingAndAdoptsTheClaudeID() {
         var (state, id) = makeState()
         state.updateLive(id) { $0.ended = true; $0.pendingNotification = PendingNotification(type: .permissionPrompt, receivedAt: now) }
-        state.applyHook(.init(kind: .sessionStart, claudeSessionId: "new-id", source: "startup"), to: id, now: now)
+        state.applyHook(.init(kind: .sessionStart, conversationId: "new-id", source: "startup"), to: id, now: now)
         #expect(state.sessions[id]?.live?.ended == false)
         #expect(state.sessions[id]?.live?.pendingNotification == nil)
-        #expect(state.sessions[id]?.claudeSessionId == "new-id")
+        #expect(state.sessions[id]?.conversationId == "new-id")
     }
 
     @Test func sessionEndTreatsClearAndResumeAsNotExited() {
@@ -753,7 +753,7 @@ import Testing
         state.applyDescriptor(descriptor, alive: true, to: id, now: now)
         #expect(state.sessions[id]?.live?.alive == true)
         #expect(state.sessions[id]?.live?.pid == 42)
-        #expect(state.sessions[id]?.claudeSessionId == "abc")
+        #expect(state.sessions[id]?.conversationId == "abc")
         #expect(state.sessions[id]?.status == .working)
     }
 
@@ -905,7 +905,7 @@ import Testing
 
     @Test func sessionStartEndsIt() {
         var (state, id, _) = makeState()
-        state.applyHook(.init(kind: .sessionStart, claudeSessionId: "new"), to: id, now: now)
+        state.applyHook(.init(kind: .sessionStart, conversationId: "new"), to: id, now: now)
         #expect(state.sessions[id]?.live?.claudeStartup == nil)
     }
 

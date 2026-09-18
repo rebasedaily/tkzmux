@@ -4,7 +4,7 @@
 // including those started in another tkzmux's panes. The `launch` frame binds our own Claudes by
 // pid, but the two fallbacks in `ClaudeIntegration.sessionID(forDescriptor:)` — the conversation
 // id and the parent-pid walk — cannot tell a foreign Claude from ours by themselves: two instances
-// restore the same `claudeSessionId`s from one `state.json`, and a dev build started from a pane
+// restore the same `conversationId`s from one `state.json`, and a dev build started from a pane
 // is itself a descendant of that pane, so a walk from *its* Claude climbs straight through it into
 // the outer instance's row.
 //

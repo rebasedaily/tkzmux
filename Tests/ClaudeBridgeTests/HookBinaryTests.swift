@@ -188,7 +188,7 @@ private func runHook(
         }
         #expect(event.kind == .stop)
         #expect(event.sessionID == SessionID("22222222-3333-4444-5555-666666666666"))
-        #expect(event.claudeSessionId == "11111111-2222-3333-4444-555555555555")
+        #expect(event.conversationId == "11111111-2222-3333-4444-555555555555")
         #expect(event.lastAssistantMessage == "All done, the build is green.")
         #expect(fullMessage == "All done, the build is green.")
         #expect(cwd == "/Users/someone/dev/tkzmux")

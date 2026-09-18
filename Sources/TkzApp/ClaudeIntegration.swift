@@ -341,7 +341,7 @@ public final class ClaudeIntegration {
             case .context(let sidecar):
                 state.setSessionSidecar(sidecar)
             case .contextRemoved(let sessionId):
-                state.clearSessionSidecar(claudeSessionId: sessionId)
+                state.clearSessionSidecar(conversationId: sessionId)
             }
         }
     }
@@ -495,16 +495,16 @@ public final class ClaudeIntegration {
     /// `setSpendTrackingDisabled` already cleared any stale `live.usage` when the switch flipped
     /// off, so there is nothing this needs to undo, only nothing further to do.
     private func refreshUsage(for id: SessionID) {
-        guard let session = store.state.sessions[id], let claudeSessionId = session.claudeSessionId,
+        guard let session = store.state.sessions[id], let conversationId = session.conversationId,
               store.state.showSessionSpend, session.spendTrackingDisabled != true
         else { return }
         let path = transcriptPath(for: id)
         Task { @MainActor [weak self] in
             guard let self else { return }
             guard let usage = await self.usageReader.refresh(
-                sessionId: claudeSessionId, transcriptPath: path)
+                sessionId: conversationId, transcriptPath: path)
             else { return }
-            self.store.update { $0.setSessionUsage(usage, claudeSessionId: claudeSessionId) }
+            self.store.update { $0.setSessionUsage(usage, conversationId: conversationId) }
         }
     }
 
@@ -574,13 +574,13 @@ public final class ClaudeIntegration {
     /// `sid` → `payload.session_id` → the `ppid` tree, per design.md → *tkzmux-hook*.
     ///
     /// Only rows with live state are targets: a restored row has no shell, so nothing running can
-    /// belong to it, and attributing to it (by a `claudeSessionId` that a resume elsewhere reused)
+    /// belong to it, and attributing to it (by a `conversationId` that a resume elsewhere reused)
     /// would resurrect a dead row without a terminal behind it.
     func sessionID(forHook event: HookEvent, ppid: pid_t) -> SessionID? {
         let state = store.state
         if let id = event.sessionID, state.sessions[id]?.live != nil { return id }
-        if let claudeID = event.claudeSessionId,
-           let match = state.sessions.values.first(where: { $0.live != nil && $0.claudeSessionId == claudeID }) {
+        if let claudeID = event.conversationId,
+           let match = state.sessions.values.first(where: { $0.live != nil && $0.conversationId == claudeID }) {
             return match.id
         }
         return sessionID(forProcess: ppid)
@@ -643,7 +643,7 @@ public final class ClaudeIntegration {
         }
     }
 
-    /// `launch` binding → a row already carrying this pid → a row whose `claudeSessionId` matches
+    /// `launch` binding → a row already carrying this pid → a row whose `conversationId` matches
     /// (a resumed conversation) → the process tree up to a session's shell.
     ///
     /// The first two joins are instance-local by construction (the pid came over *our* socket,
@@ -657,7 +657,7 @@ public final class ClaudeIntegration {
         if let match = state.sessions.values.first(where: { $0.live?.pid == info.pid }) { return match.id }
         guard ownsProcess(info.pid) else { return nil }
         if let match = state.sessions.values.first(where: {
-            $0.claudeSessionId == info.sessionId && $0.live != nil && $0.live?.descriptor == nil
+            $0.conversationId == info.sessionId && $0.live != nil && $0.live?.descriptor == nil
         }) {
             return match.id
         }
@@ -676,10 +676,10 @@ public final class ClaudeIntegration {
 
     /// Where this row's Claude conversation is on disk: the path the hooks named, or — for a row
     /// that has no live Claude and so never will — the file under its account's `projects/` that
-    /// carries its persisted `claudeSessionId`.
+    /// carries its persisted `conversationId`.
     public func transcriptPath(for id: SessionID) -> String? {
         if let path = transcriptPaths[id] { return path }
-        guard let session = store.state.sessions[id], let claudeID = session.claudeSessionId else { return nil }
+        guard let session = store.state.sessions[id], let claudeID = session.conversationId else { return nil }
         if let cached = locatedTranscripts[id],
            cached.claudeID == claudeID, cached.accountKey == session.accountKey {
             return cached.path

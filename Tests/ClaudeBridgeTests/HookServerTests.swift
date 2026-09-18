@@ -99,7 +99,7 @@ private func connectBlocking(fd: Int32, path: String) throws {
                 continue
             }
             #expect(event.sessionID == nil)
-            #expect(event.claudeSessionId == "claude-session-1" || event.claudeSessionId == "claude-session-2")
+            #expect(event.conversationId == "claude-session-1" || event.conversationId == "claude-session-2")
         }
     }
 
